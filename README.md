@@ -1,5 +1,7 @@
 # GHL Multi-Account Sales Call Tracker
 
+**Live:** https://ghl-sales-dashboard-omega.vercel.app (demo data until Supabase and GHL are connected)
+
 A Next.js dashboard that consolidates up to N GoHighLevel sub-accounts (four to start) into one
 sales-call reporting system: KPIs, call-based and pipeline-based funnels, a sales-calls table,
 rep leaderboards, analytics, follow-up monitoring and sync health.
