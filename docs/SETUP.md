@@ -91,15 +91,38 @@ You can mix both: the architecture has no fixed account count — add a fifth ro
    with no environment variables, so you can do this first and add variables later.
 2. Add every variable from `.env.example` for Production (and Preview if wanted).
    `APP_URL` = the production URL.
-3. Deploy. `vercel.json` registers two crons:
-   - `/api/cron/reconcile` every 15 min (`maxDuration` 300 s),
-   - `/api/cron/retry-webhooks` every 5 min.
+3. Deploy. `vercel.json` registers two crons that run **once a day**, because Vercel Hobby
+   rejects any deploy whose crons run more often:
+   - `/api/cron/reconcile` daily at 18:00 UTC (`maxDuration` 300 s),
+   - `/api/cron/retry-webhooks` daily at 18:30 UTC.
    Vercel sends `Authorization: Bearer $CRON_SECRET` automatically when `CRON_SECRET` is set.
-   **Hobby plans only run crons daily** — use Pro, or call the endpoints from another
-   scheduler with that header.
+   For near-real-time repair, also run them from an external scheduler ("Frequent syncs on the Hobby plan" below). On
+   Vercel Pro you can instead set the schedules in `vercel.json` to `*/15 * * * *` and
+   `*/5 * * * *` and skip the external scheduler.
 4. Update the GHL app's redirect and webhook URLs to the production domain.
 5. Check `/api/health` returns `{"ok":true,"dataSource":"supabase"}`, then work through
    [TESTING_CHECKLIST.md](TESTING_CHECKLIST.md).
+
+### Frequent syncs on the Hobby plan
+
+Run reconcile every 15 min and retry-webhooks every 5 to 10 min with either option. Both send
+`Authorization: Bearer <CRON_SECRET>`; the endpoints return 401 without it.
+
+**GitHub Actions (included).** `.github/workflows/sync-cron.yml` already has the schedules.
+In GitHub → the repo → Settings → Secrets and variables → Actions:
+1. Variables → New repository variable: `APP_URL` = the production URL, e.g.
+   `https://ghl-sales-dashboard-omega.vercel.app`.
+2. Secrets → New repository secret: `CRON_SECRET` = the same value as in Vercel.
+3. Actions → *Sync cron* → *Run workflow* once to check it returns JSON, not 401.
+Until both are set the workflow skips without failing. GitHub may delay scheduled runs by a
+few minutes, and pauses schedules after 60 days without commits to the repo (re-enable
+from the Actions tab).
+
+**n8n (alternative).** If you use n8n, disable the workflow above and create two workflows:
+Schedule Trigger (every 15 min / every 5 min) → HTTP Request, method GET, URL
+`<APP_URL>/api/cron/reconcile` / `<APP_URL>/api/cron/retry-webhooks`, header
+`Authorization` = `Bearer <CRON_SECRET>` (store it as an n8n Header Auth credential, not in
+the node), timeout 320 s.
 
 ### Production environment variables
 

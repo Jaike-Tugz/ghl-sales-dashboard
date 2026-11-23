@@ -1,0 +1,48 @@
+# Calls the sync endpoints more often than Vercel Hobby crons allow (Hobby runs them once a day).
+# Needs a repository variable APP_URL (the production URL) and a repository secret CRON_SECRET
+# (the same value as in Vercel). Until both are set, every run skips without failing.
+name: Sync cron
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # reconcile (it also retries failed webhooks)
+    - cron: "5-55/10 * * * *" # retry-webhooks, between reconcile runs
+  workflow_dispatch:
+    inputs:
+      endpoint:
+        description: Endpoint to call
+        type: choice
+        options: [reconcile, retry-webhooks]
+        default: reconcile
+
+permissions: {}
+
+concurrency:
+  group: sync-cron-${{ github.event.schedule || inputs.endpoint }}
+  cancel-in-progress: false
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Call endpoint
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_ENDPOINT: ${{ inputs.endpoint }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::notice::APP_URL variable or CRON_SECRET secret not set; skipping."
+            exit 0
+          fi
+          case "$SCHEDULE" in
+            "*/15 * * * *") endpoint=reconcile ;;
+            "") endpoint="$INPUT_ENDPOINT" ;;
+            *) endpoint=retry-webhooks ;;
+          esac
+          url="${APP_URL%/}/api/cron/$endpoint"
+          echo "Calling $url"
+          curl --fail-with-body --silent --show-error --max-time 320 \
+            -H "Authorization: Bearer $CRON_SECRET" "$url"

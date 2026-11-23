@@ -99,15 +99,16 @@ visible on the Integrations page. Scheduled reconciliation still repairs the dat
 
 ## Reconciliation
 
-`/api/cron/reconcile` (every 15 min in `vercel.json`) re-reads each active account:
+`/api/cron/reconcile` (daily via `vercel.json`, every 15 min via the external scheduler in SETUP.md) re-reads each active account:
 location → users → pipelines/stages → calendars → opportunities (sales pipelines) → missing
 contacts → appointments (sales calendars, `appointment_lookback_days` back /
 `appointment_lookahead_days` ahead, default 120/60) → optional payments. Stage changes it
 discovers are stored as `reconcile_diff` transitions. Every run is logged in `sync_runs` /
 `sync_logs`, and the account's `last_successful_sync_at` / `last_error` drive the health UI.
 
-> Vercel Hobby only allows daily crons. On Hobby, change the schedule or trigger the endpoint
-> from another scheduler with the `Authorization: Bearer $CRON_SECRET` header.
+> Vercel Hobby only allows daily crons, and fails the whole deploy otherwise. `vercel.json`
+> therefore schedules both crons daily; the 15-min / 5-min cadence comes from the GitHub
+> Actions workflow or n8n described in SETUP.md (§5, "Frequent syncs on the Hobby plan").
 
 ## Limitations — what GHL does not give us
 
