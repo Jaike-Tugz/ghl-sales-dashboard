@@ -1,145 +1,153 @@
 import Link from "next/link";
-import { AlertTriangle, BadgeDollarSign, CalendarCheck, CalendarClock, CheckCircle2, CircleDollarSign, Clock, Percent, Trophy, UserPlus, UserX, Wallet, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, CircleSlash, UserPlus, Users } from "lucide-react";
 import { loadPage } from "@/lib/page";
-import { buildContext, computeCallFunnel, computeKpis, computeLeaderboard, computeSeries, previousPeriod } from "@/lib/metrics";
-import { KPI_DEFINITIONS as D } from "@/lib/metrics/definitions";
-import { fmtCompactCurrency, fmtCurrency, fmtInt, fmtPct, fmtRelative } from "@/lib/format";
+import { buildContext, computeSeries, previousPeriod } from "@/lib/metrics";
+import { fmtDate, fmtInt, fmtRelative } from "@/lib/format";
+import { isLostLikeStage, stageCounts, stageTone, TONE_COLOR } from "@/lib/stage-style";
 import type { SearchParams } from "@/lib/filters";
+import type { Lead } from "@/lib/types";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendChart } from "@/components/charts/trend-chart";
-import { FunnelChart } from "@/components/charts/funnel-chart";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/dashboard/empty-state";
 
 export const metadata = { title: "Overview" };
 
-const delta = (cur: number | null, prev: number | null) => (cur == null || prev == null || prev === 0 ? null : (cur - prev) / Math.abs(prev));
+const delta = (cur: number, prev: number) => (prev === 0 ? null : (cur - prev) / Math.abs(prev));
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const { ctx, ds, settings, filters } = await loadPage(searchParams);
-  const k = computeKpis(ctx);
-  const prev = computeKpis(buildContext(ds, settings, previousPeriod(filters), ctx.now));
-  const series = computeSeries(ctx);
-  const funnel = computeCallFunnel(ctx);
-  const leaders = computeLeaderboard(ctx).slice(0, 5);
-  const visibleAccounts = ctx.ds.accounts;
+  const { ctx, ds, settings, filters, sp } = await loadPage(searchParams);
+  const tz = settings.reportingTimezone;
 
   if (!ds.accounts.length) {
     return (
       <>
         <PageHeader title="Overview" />
-        <EmptyState title="No GHL accounts yet" description="An admin needs to add and connect your sub-accounts under Integrations before any metrics appear." />
+        <EmptyState title="No GHL accounts yet" description="An admin needs to add and connect your sub-accounts under Integrations before anything appears." />
       </>
     );
   }
 
+  const series = computeSeries(ctx);
+  const prevSeries = computeSeries(buildContext(ds, settings, previousPeriod(filters), ctx.now));
+  const newLeads = sum(series.map((p) => p.newLeads));
+  const booked = sum(series.map((p) => p.callsScheduled));
+  const prevNewLeads = sum(prevSeries.map((p) => p.newLeads));
+  const prevBooked = sum(prevSeries.map((p) => p.callsScheduled));
+
+  // Current position of every lead (point-in-time, ignores the date range).
+  const leads = ctx.ds.leads;
+  const stageById = new Map(ctx.ds.stages.map((s) => [s.id, s]));
+  const isLost = (l: Lead) => l.status === "lost" || l.status === "abandoned" || (l.stageId != null && isLostLikeStage(stageById.get(l.stageId)?.name ?? ""));
+  const lost = leads.filter(isLost).length;
+  const active = leads.filter((l) => l.status === "open" && !isLost(l)).length;
+  const counts = stageCounts(leads, ctx.ds.stages);
+  const max = Math.max(1, ...counts.map((c) => c.count));
+  const recent = [...leads].sort((a, b) => (b.lastStageChangeAt ?? b.createdAt).localeCompare(a.lastStageChangeAt ?? a.createdAt)).slice(0, 8);
+
+  const carried = new URLSearchParams();
+  for (const k of ["account", "range", "from", "to"]) if (typeof sp[k] === "string") carried.set(k, sp[k] as string);
+  const pipelineHref = (stage?: string) => {
+    const q = new URLSearchParams(carried);
+    if (stage) q.set("gstage", stage);
+    const s = q.toString();
+    return `/pipeline${s ? `?${s}` : ""}`;
+  };
+
   return (
     <>
-      <PageHeader title="Overview" description={`Sales activity ${filters.from} → ${filters.to} (${settings.reportingTimezone}). Deltas compare with the previous period of equal length.`} />
+      <PageHeader title="Overview" description={`How your leads are progressing. Activity covers ${fmtDate(new Date(ctx.range.start).toISOString(), tz)} – ${fmtDate(new Date(ctx.range.end - 1).toISOString(), tz)}; stage counts are as of now.`} />
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <KpiCard label="New leads" value={fmtInt(k.newLeads)} icon={UserPlus} definition={D.newLeads} delta={delta(k.newLeads, prev.newLeads)} />
-        {([1, 2, 3] as const).map((n) => (
-          <KpiCard
-            key={`s${n}`}
-            label={`${["First", "Second", "Third"][n - 1]} calls scheduled`}
-            value={fmtInt(k.callsScheduled[n])}
-            icon={CalendarClock}
-            definition={D.callsScheduled}
-            delta={delta(k.callsScheduled[n], prev.callsScheduled[n])}
-          />
-        ))}
-        <KpiCard label="Closed deals" value={fmtInt(k.closedDeals)} icon={Trophy} accent="success" definition={D.closedDeals} delta={delta(k.closedDeals, prev.closedDeals)} />
-        {([1, 2, 3] as const).map((n) => (
-          <KpiCard
-            key={`c${n}`}
-            label={`${["First", "Second", "Third"][n - 1]} calls completed`}
-            value={fmtInt(k.callsCompleted[n])}
-            icon={CalendarCheck}
-            accent="success"
-            definition={D.callsCompleted}
-            delta={delta(k.callsCompleted[n], prev.callsCompleted[n])}
-          />
-        ))}
-        <KpiCard label="Lost opportunities" value={fmtInt(k.lostOpportunities)} icon={XCircle} accent="destructive" definition={D.lostOpportunities} delta={delta(k.lostOpportunities, prev.lostOpportunities)} invert />
-        <KpiCard label="No-show rate" value={fmtPct(k.noShowRate)} sub={`${fmtInt(k.noShows)} no-shows · ${fmtInt(k.pendingOutcomes)} pending outcome`} icon={UserX} accent="warning" definition={D.noShowRate} delta={delta(k.noShowRate, prev.noShowRate)} invert />
-        <KpiCard label="Win rate (overall conversion)" value={fmtPct(k.winRate)} icon={Percent} definition={D.winRate} delta={delta(k.winRate, prev.winRate)} />
-        <KpiCard label="Lead-to-close" value={fmtPct(k.leadToClose)} sub={`cohort of ${fmtInt(k.leadToCloseCohortSize)}`} icon={CheckCircle2} definition={D.leadToClose} delta={delta(k.leadToClose, prev.leadToClose)} />
-        <KpiCard label="Pipeline value (open)" value={fmtCompactCurrency(k.pipelineValue)} sub="point-in-time" icon={CircleDollarSign} definition={D.pipelineValue} />
-        <KpiCard label="Closed-won value" value={fmtCompactCurrency(k.closedWonValue)} sub="booked, not collected" icon={BadgeDollarSign} accent="success" definition={D.closedWonValue} delta={delta(k.closedWonValue, prev.closedWonValue)} />
-        <KpiCard label="Collected revenue" value={fmtCompactCurrency(k.collectedRevenue)} sub="payments received" icon={Wallet} accent="success" definition={D.collectedRevenue} delta={delta(k.collectedRevenue, prev.collectedRevenue)} />
-        <KpiCard label="Pending follow-ups" value={fmtInt(k.pendingFollowUps)} sub="right now" icon={Clock} accent="warning" definition={D.pendingFollowUps} />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="New leads" value={fmtInt(newLeads)} sub="in range" icon={UserPlus} delta={delta(newLeads, prevNewLeads)} />
+        <KpiCard label="Appointments booked" value={fmtInt(booked)} sub="in range" icon={CalendarClock} delta={delta(booked, prevBooked)} />
+        <KpiCard label="Active leads" value={fmtInt(active)} sub="open, not lost · now" icon={Users} />
+        <KpiCard label="Lost / not interested" value={fmtInt(lost)} sub={leads.length ? `${Math.round((lost / leads.length) * 100)}% of all leads · now` : "now"} icon={CircleSlash} />
       </section>
 
-      <section className="mt-6 grid gap-4 xl:grid-cols-3">
+      <section className="mt-6 grid items-start gap-4 xl:grid-cols-5">
+        <Card className="xl:col-span-3">
+          <CardHeader className="flex-row items-start justify-between gap-4">
+            <div className="flex flex-col gap-1.5">
+              <CardTitle>Where leads are now</CardTitle>
+              <CardDescription>{fmtInt(leads.length)} leads by current GHL stage</CardDescription>
+            </div>
+            <Link href={pipelineHref()} className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              Open pipeline <ArrowRight className="size-3" />
+            </Link>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1">
+            {counts.length === 0 && <p className="text-sm text-muted-foreground">No leads synced yet.</p>}
+            {counts.map((c) => (
+              <Link key={c.name} href={pipelineHref(c.name)} className="group -mx-2 grid grid-cols-[minmax(0,11rem)_1fr_2.5rem] items-center gap-4 rounded-md px-2 py-1.5 hover:bg-muted/50 sm:grid-cols-[minmax(0,14rem)_1fr_3rem]">
+                <span className="flex min-w-0 items-center gap-2 text-sm">
+                  <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: TONE_COLOR[c.tone] }} />
+                  <span className="truncate">{c.name}</span>
+                </span>
+                <span className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <span className="block h-full rounded-full" style={{ width: `${(c.count / max) * 100}%`, background: TONE_COLOR[c.tone] }} />
+                </span>
+                <span className="text-right text-sm tabular">{fmtInt(c.count)}</span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Activity trend</CardTitle>
-            <CardDescription>New leads, calls completed and deals won per {filters.granularity}</CardDescription>
+            <CardTitle>Recently moved</CardTitle>
+            <CardDescription>Latest stage changes</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col">
+            {recent.map((l) => {
+              const st = l.stageId ? stageById.get(l.stageId) : undefined;
+              return (
+                <div key={l.id} className="flex items-center gap-3 border-b border-border/60 py-2.5 last:border-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{l.contactName}</div>
+                    <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+                      <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: TONE_COLOR[st ? stageTone(st) : "slate"] }} />
+                      {st?.name ?? "No stage"}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular">{fmtRelative(l.lastStageChangeAt ?? l.createdAt, ctx.now)}</span>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-4 grid gap-4 xl:grid-cols-5">
+        <Card className="xl:col-span-3">
+          <CardHeader>
+            <CardTitle>Lead flow</CardTitle>
+            <CardDescription>New leads and appointments booked per {filters.granularity}</CardDescription>
           </CardHeader>
           <CardContent>
             <TrendChart
               data={series as unknown as Array<Record<string, number | string>>}
               series={[
                 { key: "newLeads", label: "New leads" },
-                { key: "callsCompleted", label: "Calls completed" },
-                { key: "dealsWon", label: "Deals won" },
+                { key: "callsScheduled", label: "Appointments booked" },
               ]}
             />
           </CardContent>
         </Card>
-        <Card>
+        <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Funnel (completed calls)</CardTitle>
-            <CardDescription>Leads created in range · lead-to-close {fmtPct(funnel.leadToClose)}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FunnelChart steps={funnel.steps.map((s) => ({ ...s, avgDays: s.avgDaysInPrevious }))} />
-            <Link href="/funnel" className="mt-4 inline-block text-xs font-medium text-primary hover:underline">
-              Full funnel analysis →
-            </Link>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Top representatives</CardTitle>
-            <CardDescription>By closed-won value in range</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {leaders.length === 0 && <p className="text-sm text-muted-foreground">No representatives in scope.</p>}
-            {leaders.map((r, i) => (
-              <div key={r.key} className="flex items-center gap-3">
-                <span className="w-4 text-xs text-muted-foreground tabular">{i + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{r.name}</div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {r.dealsClosed} won · {r.callsCompleted} calls · {fmtPct(r.leadToClose)} lead-to-close
-                  </div>
-                </div>
-                <div className="text-sm font-semibold tabular">{fmtCurrency(r.closedWonValue)}</div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Sync health</CardTitle>
+            <CardTitle>Sync</CardTitle>
             <CardDescription>Per GHL sub-account</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            {visibleAccounts.map((a) => (
+            {ctx.ds.accounts.map((a) => (
               <div key={a.id} className="flex items-center gap-3">
-                <span className="size-2.5 rounded-full" style={{ background: a.color }} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{a.name}</div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    Synced {fmtRelative(a.lastSuccessfulSyncAt)} · webhook {fmtRelative(a.lastWebhookAt)}
-                  </div>
+                  <div className="truncate text-xs text-muted-foreground">Last synced {fmtRelative(a.lastSuccessfulSyncAt, ctx.now)}</div>
                 </div>
                 {a.lastError ? (
                   <Badge variant="warning">
