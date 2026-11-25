@@ -4,7 +4,7 @@ import { loadPage } from "@/lib/page";
 import { buildContext, computeSeries, previousPeriod } from "@/lib/metrics";
 import { fmtDate, fmtInt, fmtRelative } from "@/lib/format";
 import { stageCounts, stageTone, TONE_COLOR } from "@/lib/stage-style";
-import { coverage, isLostLead, SOURCE_DIMENSIONS, sourceBreakdown, type SourceDimension } from "@/lib/metrics/sources";
+import { coverage, DEFAULT_SOURCE_DIMENSION, isLostLead, SOURCE_DIMENSIONS, sourceBreakdown, type SourceDimension } from "@/lib/metrics/sources";
 import { inRange } from "@/lib/time";
 import type { SearchParams } from "@/lib/filters";
 import type { Lead } from "@/lib/types";
@@ -49,12 +49,12 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const active = leads.filter((l) => l.status === "open" && !isLost(l)).length;
   const counts = stageCounts(leads, ctx.ds.stages);
   const max = Math.max(1, ...counts.map((c) => c.count));
-  const by = (SOURCE_DIMENSIONS.find((d) => d.key === sp.by)?.key ?? "source") as SourceDimension;
+  const by = (SOURCE_DIMENSIONS.find((d) => d.key === sp.by)?.key ?? DEFAULT_SOURCE_DIMENSION) as SourceDimension;
   const cohort = leads.filter((l) => inRange(l.createdAt, ctx.range));
   const sources = sourceBreakdown(cohort, ctx.ds.appointments, ctx.ds.stages, by);
   const sourcesHref = (d: SourceDimension) => {
     const q = new URLSearchParams(carried);
-    if (d !== "source") q.set("by", d);
+    if (d !== DEFAULT_SOURCE_DIMENSION) q.set("by", d);
     const s = q.toString();
     return `/${s ? `?${s}` : ""}#sources`;
   };

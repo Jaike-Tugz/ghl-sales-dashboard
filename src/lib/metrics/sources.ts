@@ -14,6 +14,9 @@ export const SOURCE_DIMENSIONS = [
 
 export type SourceDimension = (typeof SOURCE_DIMENSIONS)[number]["key"];
 
+/** What Overview → Lead sources groups by when no ?by= is given. */
+export const DEFAULT_SOURCE_DIMENSION: SourceDimension = "utm_medium";
+
 export const NOT_SET = "(not set)";
 
 export interface SourceRow {
