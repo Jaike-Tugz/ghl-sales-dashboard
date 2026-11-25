@@ -26,7 +26,7 @@ export function FilterBar({ reps, stages, outcomes, search = true }: { reps?: Op
       {search && (
         <div className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, company, email" className="pl-8" aria-label="Search" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, source" className="pl-8" aria-label="Search" />
         </div>
       )}
       {reps && (

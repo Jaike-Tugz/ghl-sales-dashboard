@@ -3,7 +3,9 @@ import { AlertTriangle, ArrowRight, CalendarClock, CircleSlash, UserPlus, Users 
 import { loadPage } from "@/lib/page";
 import { buildContext, computeSeries, previousPeriod } from "@/lib/metrics";
 import { fmtDate, fmtInt, fmtRelative } from "@/lib/format";
-import { isLostLikeStage, stageCounts, stageTone, TONE_COLOR } from "@/lib/stage-style";
+import { stageCounts, stageTone, TONE_COLOR } from "@/lib/stage-style";
+import { coverage, isLostLead, SOURCE_DIMENSIONS, sourceBreakdown, type SourceDimension } from "@/lib/metrics/sources";
+import { inRange } from "@/lib/time";
 import type { SearchParams } from "@/lib/filters";
 import type { Lead } from "@/lib/types";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -12,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { TrendChart } from "@/components/charts/trend-chart";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { SourceTable } from "@/components/dashboard/source-table";
 
 export const metadata = { title: "Overview" };
 
@@ -41,11 +44,20 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   // Current position of every lead (point-in-time, ignores the date range).
   const leads = ctx.ds.leads;
   const stageById = new Map(ctx.ds.stages.map((s) => [s.id, s]));
-  const isLost = (l: Lead) => l.status === "lost" || l.status === "abandoned" || (l.stageId != null && isLostLikeStage(stageById.get(l.stageId)?.name ?? ""));
+  const isLost = (l: Lead) => isLostLead(l, l.stageId ? stageById.get(l.stageId)?.name : undefined);
   const lost = leads.filter(isLost).length;
   const active = leads.filter((l) => l.status === "open" && !isLost(l)).length;
   const counts = stageCounts(leads, ctx.ds.stages);
   const max = Math.max(1, ...counts.map((c) => c.count));
+  const by = (SOURCE_DIMENSIONS.find((d) => d.key === sp.by)?.key ?? "source") as SourceDimension;
+  const cohort = leads.filter((l) => inRange(l.createdAt, ctx.range));
+  const sources = sourceBreakdown(cohort, ctx.ds.appointments, ctx.ds.stages, by);
+  const sourcesHref = (d: SourceDimension) => {
+    const q = new URLSearchParams(carried);
+    if (d !== "source") q.set("by", d);
+    const s = q.toString();
+    return `/${s ? `?${s}` : ""}#sources`;
+  };
   const recent = [...leads].sort((a, b) => (b.lastStageChangeAt ?? b.createdAt).localeCompare(a.lastStageChangeAt ?? a.createdAt)).slice(0, 8);
 
   const carried = new URLSearchParams();
@@ -76,7 +88,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               <CardDescription>{fmtInt(leads.length)} leads by current GHL stage</CardDescription>
             </div>
             <Link href={pipelineHref()} className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              Open pipeline <ArrowRight className="size-3" />
+              Open lead progress <ArrowRight className="size-3" />
             </Link>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
@@ -119,6 +131,10 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             })}
           </CardContent>
         </Card>
+      </section>
+
+      <section id="sources" className="mt-4 scroll-mt-24">
+        <SourceTable rows={sources} dimension={by} href={sourcesHref} coverage={coverage(cohort, by)} cohort={cohort.length} />
       </section>
 
       <section className="mt-4 grid gap-4 xl:grid-cols-5">

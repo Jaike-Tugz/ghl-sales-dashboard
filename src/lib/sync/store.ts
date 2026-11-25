@@ -6,6 +6,7 @@ import {
   isStale,
   mapAppointment,
   mapContact,
+  mapContactAttribution,
   mapOpportunity,
   planReschedule,
   planTransition,
@@ -96,8 +97,22 @@ export async function upsertOpportunity(
   return existing ? "updated" : "inserted";
 }
 
-export async function upsertContact(db: SupabaseClient, accountId: string, c: GhlContact): Promise<UpsertResult> {
-  const row = mapContact(c, accountId);
+/** True when Postgres/PostgREST says a column is missing (attribution migration not applied yet). */
+export const isMissingColumn = (e: { code?: string; message?: string } | null | undefined) =>
+  !!e && (e.code === "42703" || e.code === "PGRST204" || /column .* does not exist|Could not find the '.*' column/i.test(e.message ?? ""));
+
+/**
+ * `fullFetch` = the payload came from GET /contacts/{id}, which carries
+ * attribution; it stamps attribution_fetched_at so the backfill runs once.
+ */
+export async function upsertContact(db: SupabaseClient, accountId: string, c: GhlContact, opts: { fullFetch?: boolean } = {}): Promise<UpsertResult> {
+  const base = mapContact(c, accountId);
+  const attribution = mapContactAttribution(c);
+  const row = {
+    ...base,
+    ...(attribution ?? {}),
+    ...(opts.fullFetch ? { attribution_fetched_at: new Date().toISOString() } : {}),
+  };
   const { data: existing } = await db
     .from("contacts")
     .select("id, ghl_updated_at")
@@ -105,7 +120,9 @@ export async function upsertContact(db: SupabaseClient, accountId: string, c: Gh
     .eq("ghl_contact_id", c.id)
     .maybeSingle();
   if (existing && isStale(existing.ghl_updated_at, row.ghl_updated_at)) return "stale";
-  const { error } = await db.from("contacts").upsert({ ...row, synced_at: new Date().toISOString() }, { onConflict: "account_id,ghl_contact_id" });
+  const synced_at = new Date().toISOString();
+  let { error } = await db.from("contacts").upsert({ ...row, synced_at }, { onConflict: "account_id,ghl_contact_id" });
+  if (isMissingColumn(error)) ({ error } = await db.from("contacts").upsert({ ...base, synced_at }, { onConflict: "account_id,ghl_contact_id" }));
   if (error) throw new Error(error.message);
   return existing ? "updated" : "inserted";
 }

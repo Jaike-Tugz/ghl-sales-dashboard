@@ -100,7 +100,11 @@ export interface Lead {
   contactName: string;
   company: string | null;
   email: string | null;
+  /** Opportunity source, falling back to the contact's (e.g. "FB Form"). */
   source: string | null;
+  /** Contact source as set in GHL (often the ad/campaign, e.g. "Facebook - EVO ICL V2"). */
+  contactSource: string | null;
+  attribution: LeadAttribution;
   repId: string | null;
   pipelineId: string;
   stageId: string | null;
@@ -115,6 +119,30 @@ export interface Lead {
   lostAt: string | null;
   lastActivityAt: string | null;
 }
+
+/** UTM / channel attribution from the GHL contact (first touch, last touch as fallback). */
+export interface LeadAttribution {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
+  /** GHL channel fields, e.g. medium "facebook", sessionSource "Paid Social". */
+  medium: string | null;
+  sessionSource: string | null;
+  campaign: string | null;
+}
+
+export const EMPTY_ATTRIBUTION: LeadAttribution = {
+  utmSource: null,
+  utmMedium: null,
+  utmCampaign: null,
+  utmContent: null,
+  utmTerm: null,
+  medium: null,
+  sessionSource: null,
+  campaign: null,
+};
 
 export interface Appointment {
   id: string;

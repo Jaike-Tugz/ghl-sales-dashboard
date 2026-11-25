@@ -14,7 +14,7 @@ import {
   listUsers,
 } from "../ghl/endpoints";
 import { personKey, toIso } from "./mappers";
-import { loadRefs, logSync, upsertAppointment, upsertContact, upsertOpportunity } from "./store";
+import { isMissingColumn, loadRefs, logSync, upsertAppointment, upsertContact, upsertOpportunity } from "./store";
 
 /**
  * Scheduled reconciliation for one account. Re-reads GHL (read-only) and
@@ -100,15 +100,18 @@ export async function reconcileAccount(db: SupabaseClient, account: AccountRow, 
       }
     }
 
-    // 6. Contacts referenced by opportunities that we have never fully fetched.
+    // 6. Contacts referenced by opportunities that we have never fully fetched
+    //    (including, once, older contacts fetched before attribution was stored).
     if (seenContacts.size) {
-      const { data: known } = await db.from("contacts").select("ghl_contact_id").eq("account_id", account.id).not("date_added", "is", null);
-      const have = new Set((known ?? []).map((k) => k.ghl_contact_id));
+      let known = await db.from("contacts").select("ghl_contact_id").eq("account_id", account.id).not("date_added", "is", null).not("attribution_fetched_at", "is", null);
+      // Attribution migration not applied yet: fall back to the original rule so we don't refetch every run.
+      if (isMissingColumn(known.error)) known = await db.from("contacts").select("ghl_contact_id").eq("account_id", account.id).not("date_added", "is", null);
+      const have = new Set((known.data ?? []).map((k) => k.ghl_contact_id));
       const missing = [...seenContacts].filter((c) => !have.has(c)).slice(0, 500);
       for (const id of missing) {
         try {
           const c = await getContact(ghl, id);
-          if (c) bump(`contacts_${await upsertContact(db, account.id, c)}`);
+          if (c) bump(`contacts_${await upsertContact(db, account.id, c, { fullFetch: true })}`);
         } catch (err) {
           if (!(err instanceof GhlApiError && err.status === 404)) warnings.push(`contact ${id}: ${(err as Error).message}`);
         }

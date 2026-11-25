@@ -112,6 +112,9 @@ async function selectAll<T>(table: string, columns: string, filter?: (q: any) =>
   return out;
 }
 
+const CONTACT_COLUMNS = "account_id, ghl_contact_id, full_name, company_name, email, source";
+const ATTRIBUTION_COLUMNS = "utm_source, utm_medium, utm_campaign, utm_content, utm_term, attribution_medium, session_source, attribution_campaign";
+
 /**
  * Reads go through the user's session, so RLS decides the rows. Business
  * stage is joined at read time from pipeline_stages, so changing a mapping in
@@ -130,7 +133,10 @@ async function loadFromSupabase(): Promise<Dataset> {
       "id, account_id, ghl_opportunity_id, ghl_contact_id, name, pipeline_id, stage_id, status, monetary_value, source, rep_id, ghl_created_at, last_stage_change_at, last_status_change_at, won_at, lost_at, last_activity_at, synced_at",
       notDeleted,
     ),
-    selectAll<any>("contacts", "account_id, ghl_contact_id, full_name, company_name, email, source", notDeleted),
+    selectAll<any>("contacts", `${CONTACT_COLUMNS}, ${ATTRIBUTION_COLUMNS}`, notDeleted).catch((err: Error) =>
+      // Attribution migration not applied yet: load contacts without it.
+      /does not exist|Could not find/i.test(err.message) ? selectAll<any>("contacts", CONTACT_COLUMNS, notDeleted) : Promise.reject(err),
+    ),
     selectAll<any>(
       "appointments",
       "id, account_id, ghl_appointment_id, ghl_contact_id, opportunity_id, calendar_id, rep_id, title, ghl_status, start_time, end_time, booked_at, reschedule_count, outcome_override",
@@ -163,6 +169,17 @@ async function loadFromSupabase(): Promise<Dataset> {
         company: c?.company_name ?? null,
         email: c?.email ?? null,
         source: o.source ?? c?.source ?? null,
+        contactSource: c?.source ?? null,
+        attribution: {
+          utmSource: c?.utm_source ?? null,
+          utmMedium: c?.utm_medium ?? null,
+          utmCampaign: c?.utm_campaign ?? null,
+          utmContent: c?.utm_content ?? null,
+          utmTerm: c?.utm_term ?? null,
+          medium: c?.attribution_medium ?? null,
+          sessionSource: c?.session_source ?? null,
+          campaign: c?.attribution_campaign ?? null,
+        },
         repId: o.rep_id,
         pipelineId: o.pipeline_id,
         stageId: o.stage_id,

@@ -18,6 +18,7 @@ import type {
   SalesRep,
   StageTransition,
 } from "../types";
+import { EMPTY_ATTRIBUTION } from "../types";
 
 function prng(seed: number) {
   let t = seed >>> 0;
@@ -33,6 +34,27 @@ const FIRST = ["Olivia", "Liam", "Amelia", "Noah", "Isla", "Oliver", "Ava", "Jac
 const LAST = ["Smith", "Jones", "Williams", "Brown", "Taylor", "Wilson", "Nguyen", "Martin", "Clarke", "Walker", "Hall", "Young", "King", "Wright", "Scott", "Green", "Baker", "Hill", "Lee", "Adams"];
 const COMPANIES = ["Northwind", "Bluegum Co", "Apex Dental", "Harbour Legal", "Summit Fitness", "Coastal Realty", "Ironbark Builders", "Lumen Clinic", "Peak Finance", "Willow Studio", null, null];
 const SOURCES = ["Facebook Ads", "Google Ads", "Referral", "Website Form", "Instagram", "Webinar", "Cold Outreach"];
+const FB_CAMPAIGNS = ["EVO ICL V2", "EVO ICL V3", "CLE V1"];
+const FB_ADS = ["Video - Testimonial", "Carousel - Results", "Static - Offer"];
+
+/** Plausible UTM attribution for a demo lead, consistent with its source. */
+function demoAttribution(source: string, r: () => number): Pick<Lead, "contactSource" | "attribution"> {
+  const p = <T,>(xs: T[]) => xs[Math.floor(r() * xs.length)];
+  const none = { ...EMPTY_ATTRIBUTION };
+  if (source === "Facebook Ads" || source === "Instagram") {
+    const campaign = p(FB_CAMPAIGNS);
+    return {
+      contactSource: `Facebook - ${campaign}`,
+      attribution: { ...none, utmSource: source === "Instagram" ? "ig" : "fb", utmMedium: "paid_social", utmCampaign: campaign, utmContent: p(FB_ADS), medium: "facebook", sessionSource: "Paid Social", campaign },
+    };
+  }
+  if (source === "Google Ads") {
+    const campaign = p(["Search - Brand", "Search - Generic"]);
+    return { contactSource: "Google Ads", attribution: { ...none, utmSource: "google", utmMedium: "cpc", utmCampaign: campaign, medium: "google", sessionSource: "Paid Search", campaign } };
+  }
+  if (source === "Website Form") return { contactSource: "Website", attribution: { ...none, utmSource: r() < 0.5 ? "google" : null, utmMedium: r() < 0.5 ? "organic" : null, sessionSource: "Organic Search" } };
+  return { contactSource: source, attribution: none };
+}
 
 const ACCOUNTS: Array<Pick<Account, "id" | "name" | "locationId" | "color">> = [
   { id: "acc_1", name: "Account 1", locationId: "DEMO-LOC-0001", color: "#2a78d6" },
@@ -131,6 +153,7 @@ function generate(now: number): Dataset {
       const first = pick(FIRST);
       const last = pick(LAST);
       const leadId = `lead_${n}`;
+      const source = pick(SOURCES);
       const contactId = `demo-contact-${n}`;
       const value = Math.round((1500 + rand() * 13500) / 50) * 50;
       let cursor = created;
@@ -147,7 +170,8 @@ function generate(now: number): Dataset {
         contactName: `${first} ${last}`,
         company: pick(COMPANIES),
         email: `${first}.${last}${n}@example.com`.toLowerCase(),
-        source: pick(SOURCES),
+        source,
+        ...demoAttribution(source, rand),
         repId: rep?.id ?? null,
         pipelineId: `pipe_${a.id}`,
         stageId: null,

@@ -3,7 +3,6 @@ import { loadPage } from "@/lib/page";
 import { fmtDate, fmtInt } from "@/lib/format";
 import { stageCounts, stageTone, TONE_COLOR } from "@/lib/stage-style";
 import type { SearchParams } from "@/lib/filters";
-import type { Lead } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FilterBar } from "@/components/dashboard/filter-bar";
@@ -12,15 +11,19 @@ import { Pagination, paginate } from "@/components/dashboard/pagination";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export const metadata = { title: "Pipeline" };
+export const metadata = { title: "Lead Progress" };
 
-const DAY = 86_400_000;
 const TILE = "flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-4 transition-colors hover:border-foreground/25";
 const TILE_ACTIVE = "border-foreground/60 hover:border-foreground/60";
 
-function daysIn(lead: Lead, now: number) {
-  const since = lead.lastStageChangeAt ?? lead.createdAt;
-  return Math.max(0, Math.floor((now - Date.parse(since)) / DAY));
+
+/** A text cell that truncates long values and shows "—" when empty. */
+function Cell({ value }: { value: string | null | undefined }) {
+  return (
+    <TableCell className="max-w-56 truncate text-sm" title={value ?? undefined}>
+      {value || <span className="text-muted-foreground">—</span>}
+    </TableCell>
+  );
 }
 
 function Dot({ color, className }: { color: string; className?: string }) {
@@ -53,7 +56,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
   const q = filters.q?.toLowerCase();
   const rows = all
     .filter((l) => !selected || (l.stageId != null && selectedIds.has(l.stageId)))
-    .filter((l) => !q || [l.contactName, l.company, l.email].some((v) => v?.toLowerCase().includes(q)))
+    .filter((l) => !q || [l.contactName, l.company, l.email, l.contactSource, l.attribution.utmCampaign, l.attribution.utmSource].some((v) => v?.toLowerCase().includes(q)))
     .sort((a, b) => (b.lastStageChangeAt ?? b.createdAt).localeCompare(a.lastStageChangeAt ?? a.createdAt));
   const { slice, page, pages, total } = paginate(rows, sp.page);
 
@@ -67,7 +70,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader title="Pipeline" description="Where every lead stands right now, using your GHL stages. Refreshes on each sync." />
+      <PageHeader title="Lead Progress" description="Where every lead stands right now, using your GHL stages. Refreshes on each sync." />
 
       {all.length === 0 ? (
         <EmptyState title="No leads yet" description="Leads appear here once your sales pipeline is synced from GHL." />
@@ -137,7 +140,10 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Lead</TableHead>
                     <TableHead>Current stage</TableHead>
-                    <TableHead className="text-right">In stage</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>UTM source</TableHead>
+                    <TableHead>UTM medium</TableHead>
+                    <TableHead>UTM campaign</TableHead>
                     <TableHead>Next appointment</TableHead>
                     {multiAccount && <TableHead>Sub-account</TableHead>}
                     <TableHead>Created</TableHead>
@@ -148,7 +154,6 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                   {slice.map((l) => {
                     const stage = l.stageId ? stageById.get(l.stageId) : undefined;
                     const color = TONE_COLOR[stage ? stageTone(stage) : "slate"];
-                    const d = daysIn(l, now);
                     const next = nextCall.get(l.id);
                     return (
                       <TableRow key={l.id}>
@@ -160,12 +165,13 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                           <span className="inline-flex items-center gap-2 text-sm">
                             <Dot color={color} />
                             {stage?.name ?? <span className="text-muted-foreground">No stage</span>}
-                            {l.status !== "open" && <span className="text-xs capitalize text-muted-foreground">· {l.status}</span>}
+                            {l.status !== "open" && !stage?.name.toLowerCase().includes(l.status) && <span className="text-xs capitalize text-muted-foreground">· {l.status}</span>}
                           </span>
                         </TableCell>
-                        <TableCell className={cn("text-right text-sm tabular", d >= 14 ? "text-foreground" : "text-muted-foreground")}>
-                          {d === 0 ? "Today" : `${d} d`}
-                        </TableCell>
+                        <Cell value={l.contactSource ?? l.source} />
+                        <Cell value={l.attribution.utmSource} />
+                        <Cell value={l.attribution.utmMedium} />
+                        <Cell value={l.attribution.utmCampaign ?? l.attribution.campaign} />
                         <TableCell className="text-sm tabular">{next ? fmtDate(next, tz, true) : <span className="text-muted-foreground">—</span>}</TableCell>
                         {multiAccount && <TableCell className="text-sm text-muted-foreground">{accounts.get(l.accountId)}</TableCell>}
                         <TableCell className="text-sm text-muted-foreground tabular">{fmtDate(l.createdAt, tz)}</TableCell>

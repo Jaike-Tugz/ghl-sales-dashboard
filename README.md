@@ -4,7 +4,7 @@
 
 A Next.js dashboard that consolidates up to N GoHighLevel sub-accounts (four to start) into one
 simple lead-progress dashboard: an Overview (new leads, appointments booked, where leads are now,
-recent stage changes, sync health) and a Pipeline list showing every lead's current GHL stage,
+recent stage changes, sync health) and a Lead Progress list showing every lead's current GHL stage,
 plus Integrations and Settings.
 
 No n8n, Zapier or Make. GHL is read through its official API v2 and webhooks, and **nothing is
