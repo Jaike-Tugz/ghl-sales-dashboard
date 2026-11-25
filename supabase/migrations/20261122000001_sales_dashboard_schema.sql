@@ -547,3 +547,7 @@ grant delete on user_profiles to authenticated;
 grant insert, delete on user_account_access to authenticated;
 grant update (reporting_timezone, funnel_stages, outcome_mapping, abandoned_counts_as_lost, pending_outcome_grace_minutes, updated_at, updated_by) on app_settings to authenticated;
 grant update (enabled, threshold_days, updated_at) on follow_up_rules to authenticated;
+
+-- Supabase grants functions to anon directly, so revoking from public is not enough
+revoke execute on function app_role(), is_admin(), can_view_account(uuid), can_view_record(uuid, uuid), can_manage_account(uuid) from anon;
+revoke execute on function handle_new_user(), protect_last_admin() from public, anon, authenticated;
