@@ -11,7 +11,7 @@ export function UserMenu({ name, email, role, demo }: { name: string; email: str
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="gap-2 px-2">
-          <span className="flex size-7 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">{initials}</span>
+          <span className="flex size-7 items-center justify-center rounded-full bg-secondary text-xs font-medium text-foreground">{initials}</span>
           <span className="hidden max-w-36 truncate text-sm md:inline">{name}</span>
         </Button>
       </DropdownMenuTrigger>

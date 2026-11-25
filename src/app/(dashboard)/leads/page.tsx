@@ -1,9 +1,9 @@
 import { loadPage } from "@/lib/page";
 import { lastActivityFor } from "@/lib/metrics";
-import { stageLabel } from "@/lib/settings-defaults";
+import { stageTone, TONE_COLOR } from "@/lib/stage-style";
 import { inRange } from "@/lib/time";
 import { fmtCurrency, fmtDate } from "@/lib/format";
-import { repOptions, stageOptions } from "@/lib/options";
+import { stageOptions } from "@/lib/options";
 import type { SearchParams } from "@/lib/filters";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FilterBar } from "@/components/dashboard/filter-bar";
@@ -17,10 +17,10 @@ import { Pagination, paginate } from "@/components/dashboard/pagination";
 export const metadata = { title: "Leads" };
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const { ctx, ds, settings, sp, filters } = await loadPage(searchParams);
+  const { ctx, settings, sp, filters } = await loadPage(searchParams);
   const tz = settings.reportingTimezone;
   const accounts = new Map(ctx.ds.accounts.map((a) => [a.id, a.name]));
-  const reps = new Map(ctx.ds.reps.map((r) => [r.id, r.name]));
+  const stages = new Map(ctx.ds.stages.map((s) => [s.id, s]));
   const q = filters.q?.toLowerCase();
   const rows = ctx.ds.leads
     .filter((l) => inRange(l.createdAt, ctx.range))
@@ -33,7 +33,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       <PageHeader title="Leads" description="Opportunities created in a mapped sales pipeline during the selected range. Each keeps its original GHL id and sub-account.">
         <ExportButton kind="leads" />
       </PageHeader>
-      <FilterBar reps={repOptions(ds)} stages={stageOptions(settings)} />
+      <FilterBar stages={stageOptions(settings)} />
       {rows.length === 0 ? (
         <EmptyState title="No leads in this range" description="New opportunities appear here once synced from GHL." />
       ) : (
@@ -43,7 +43,6 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               <TableRow>
                 <TableHead>Lead</TableHead>
                 <TableHead>Sub-account</TableHead>
-                <TableHead>Rep</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Stage</TableHead>
                 <TableHead>Calls completed</TableHead>
@@ -63,9 +62,20 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                       <div className="text-[11px] text-muted-foreground">{l.company ?? l.email ?? "—"}</div>
                     </TableCell>
                     <TableCell className="text-xs">{accounts.get(l.accountId)}</TableCell>
-                    <TableCell className="text-xs">{l.repId ? reps.get(l.repId) : <span className="text-muted-foreground">Unassigned</span>}</TableCell>
                     <TableCell className="text-xs">{l.source ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{stageLabel(settings, l.businessStage)}</TableCell>
+                    <TableCell className="text-xs">
+                      {(() => {
+                        const st = l.stageId ? stages.get(l.stageId) : undefined;
+                        return st ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span aria-hidden className="size-2 rounded-full" style={{ background: TONE_COLOR[stageTone(st)] }} />
+                            {st.name}
+                          </span>
+                        ) : (
+                          "—"
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="text-xs tabular">{s?.maxCompleted ?? 0}</TableCell>
                     <TableCell className="text-xs tabular">{fmtDate(l.createdAt, tz)}</TableCell>
                     <TableCell className="text-xs tabular">{fmtDate(lastActivityFor(l, s, ctx.now), tz)}</TableCell>

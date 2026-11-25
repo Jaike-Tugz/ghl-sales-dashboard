@@ -47,7 +47,7 @@ export function FunnelChart({ steps }: { steps: FunnelDatum[] }) {
               </div>
               <div className="relative h-7 rounded-md bg-muted/60">
                 <div
-                  className="absolute inset-y-0 left-0 rounded-md bg-primary transition-[width,opacity] duration-700 ease-out"
+                  className="absolute inset-y-0 left-0 rounded-md bg-foreground/75 transition-[width,opacity] duration-700 ease-out"
                   style={{ width: `${w}%`, opacity: hover && hover !== s.key ? 0.45 : 0.55 + 0.45 * (1 - i / Math.max(1, steps.length)) }}
                 />
               </div>

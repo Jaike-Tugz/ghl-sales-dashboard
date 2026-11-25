@@ -6,7 +6,7 @@ export function NativeSelect({ className, children, ...props }: React.ComponentP
   return (
     <div className={cn("relative", className)}>
       <select
-        className="h-9 w-full appearance-none rounded-md border bg-card pl-3 pr-8 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:opacity-50"
+        className="h-9 w-full appearance-none rounded-md border bg-card pl-3 pr-8 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:opacity-50"
         {...props}
       >
         {children}

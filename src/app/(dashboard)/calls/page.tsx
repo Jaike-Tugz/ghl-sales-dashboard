@@ -2,7 +2,7 @@ import { loadPage } from "@/lib/page";
 import { buildCallRows } from "@/lib/metrics";
 import { canManage } from "@/lib/auth/viewer";
 import { fmtCurrency, fmtDate } from "@/lib/format";
-import { outcomeOptions, repOptions, stageOptions } from "@/lib/options";
+import { outcomeOptions, stageOptions } from "@/lib/options";
 import type { SearchParams } from "@/lib/filters";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FilterBar } from "@/components/dashboard/filter-bar";
@@ -30,7 +30,7 @@ export default async function CallsPage({ searchParams }: { searchParams: Promis
       >
         <ExportButton kind="calls" />
       </PageHeader>
-      <FilterBar reps={repOptions(ds)} stages={stageOptions(settings)} outcomes={outcomeOptions()} />
+      <FilterBar stages={stageOptions(settings)} outcomes={outcomeOptions()} />
       {rows.length === 0 ? (
         <EmptyState title="No sales calls match" description="Try a wider date range or clear the filters." />
       ) : (
@@ -40,7 +40,6 @@ export default async function CallsPage({ searchParams }: { searchParams: Promis
               <TableRow>
                 <TableHead>Lead</TableHead>
                 <TableHead>Sub-account</TableHead>
-                <TableHead>Rep</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Stage</TableHead>
                 <TableHead>First call</TableHead>
@@ -60,7 +59,6 @@ export default async function CallsPage({ searchParams }: { searchParams: Promis
                     <div className="text-[11px] text-muted-foreground">{r.company ?? "—"}</div>
                   </TableCell>
                   <TableCell className="text-xs">{r.accountName}</TableCell>
-                  <TableCell className="text-xs">{r.repName ?? <span className="text-muted-foreground">Unassigned</span>}</TableCell>
                   <TableCell className="text-xs">{r.source ?? "—"}</TableCell>
                   <TableCell className="text-xs">{r.stageLabel}</TableCell>
                   {([1, 2, 3] as const).map((n) => (
