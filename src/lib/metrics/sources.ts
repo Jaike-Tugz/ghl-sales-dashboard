@@ -21,6 +21,8 @@ export const NOT_SET = "(not set)";
 
 export interface SourceRow {
   label: string;
+  /** Optional context line, e.g. the campaign an ad belongs to. */
+  parent?: string | null;
   leads: number;
   /** Leads with at least one appointment that wasn't cancelled or invalid. */
   booked: number;
@@ -40,11 +42,32 @@ export function isLostLead(l: Lead, stageName: string | undefined) {
  */
 export function sourceBreakdown(leads: Lead[], appointments: Appointment[], stages: PipelineStage[], dimension: SourceDimension): SourceRow[] {
   const dim = SOURCE_DIMENSIONS.find((d) => d.key === dimension) ?? SOURCE_DIMENSIONS[0];
+  return breakdownBy(leads, appointments, stages, dim.get);
+}
+
+/**
+ * Same as sourceBreakdown for any grouping function. `parentOf` adds a context
+ * line per row (the most common parent value among its leads).
+ */
+export function breakdownBy(
+  leads: Lead[],
+  appointments: Appointment[],
+  stages: PipelineStage[],
+  get: (l: Lead) => string | null | undefined,
+  parentOf?: (l: Lead) => string | null | undefined,
+): SourceRow[] {
   const stageName = new Map(stages.map((s) => [s.id, s.name]));
   const bookedLeads = new Set(appointments.filter((a) => a.leadId && a.ghlStatus !== "cancelled" && a.ghlStatus !== "invalid").map((a) => a.leadId!));
   const rows = new Map<string, SourceRow>();
+  const parents = new Map<string, Map<string, number>>();
   for (const l of leads) {
-    const label = dim.get(l)?.trim() || NOT_SET;
+    const label = get(l)?.trim() || NOT_SET;
+    const parent = parentOf?.(l)?.trim();
+    if (parent) {
+      const m = parents.get(label) ?? new Map<string, number>();
+      m.set(parent, (m.get(parent) ?? 0) + 1);
+      parents.set(label, m);
+    }
     const r = rows.get(label) ?? { label, leads: 0, booked: 0, won: 0, lost: 0, bookedRate: null };
     r.leads++;
     if (bookedLeads.has(l.id)) r.booked++;
@@ -52,8 +75,9 @@ export function sourceBreakdown(leads: Lead[], appointments: Appointment[], stag
     else if (isLostLead(l, l.stageId ? stageName.get(l.stageId) : undefined)) r.lost++;
     rows.set(label, r);
   }
+  const topParent = (label: string) => [...(parents.get(label) ?? new Map()).entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   return [...rows.values()]
-    .map((r) => ({ ...r, bookedRate: r.leads ? r.booked / r.leads : null }))
+    .map((r) => ({ ...r, bookedRate: r.leads ? r.booked / r.leads : null, ...(parentOf ? { parent: topParent(r.label) } : {}) }))
     .sort((a, b) => Number(a.label === NOT_SET) - Number(b.label === NOT_SET) || b.leads - a.leads || a.label.localeCompare(b.label));
 }
 

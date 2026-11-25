@@ -113,7 +113,17 @@ async function selectAll<T>(table: string, columns: string, filter?: (q: any) =>
 }
 
 const CONTACT_COLUMNS = "account_id, ghl_contact_id, full_name, company_name, email, source";
-const ATTRIBUTION_COLUMNS = "utm_source, utm_medium, utm_campaign, utm_content, utm_term, attribution_medium, session_source, attribution_campaign";
+const ATTRIBUTION_COLUMNS = "utm_source, utm_medium, utm_campaign, utm_content, utm_term, attribution_medium, session_source, attribution_campaign, attribution";
+
+/** A string field from GHL's raw attribution objects, first touch first. */
+function rawAttr(c: any, key: string): string | null {
+  for (const side of ["first", "last"]) {
+    const v = c?.attribution?.[side]?.[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (typeof v === "number") return String(v);
+  }
+  return null;
+}
 
 /**
  * Reads go through the user's session, so RLS decides the rows. Business
@@ -179,6 +189,10 @@ async function loadFromSupabase(): Promise<Dataset> {
           medium: c?.attribution_medium ?? null,
           sessionSource: c?.session_source ?? null,
           campaign: c?.attribution_campaign ?? null,
+          campaignId: rawAttr(c, "campaignId"),
+          adSetId: rawAttr(c, "adSetId"),
+          adId: rawAttr(c, "adId"),
+          formName: rawAttr(c, "formName"),
         },
         repId: o.rep_id,
         pipelineId: o.pipeline_id,

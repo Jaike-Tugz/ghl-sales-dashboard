@@ -131,6 +131,11 @@ export interface LeadAttribution {
   medium: string | null;
   sessionSource: string | null;
   campaign: string | null;
+  /** Meta ids and lead form, from GHL's raw attribution (Facebook lead ads). */
+  campaignId: string | null;
+  adSetId: string | null;
+  adId: string | null;
+  formName: string | null;
 }
 
 export const EMPTY_ATTRIBUTION: LeadAttribution = {
@@ -142,6 +147,10 @@ export const EMPTY_ATTRIBUTION: LeadAttribution = {
   medium: null,
   sessionSource: null,
   campaign: null,
+  campaignId: null,
+  adSetId: null,
+  adId: null,
+  formName: null,
 };
 
 export interface Appointment {
