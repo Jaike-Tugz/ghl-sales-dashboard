@@ -45,7 +45,17 @@ function demoAttribution(source: string, r: () => number): Pick<Lead, "contactSo
     const campaign = p(FB_CAMPAIGNS);
     return {
       contactSource: `Facebook - ${campaign}`,
-      attribution: { ...none, utmSource: source === "Instagram" ? "ig" : "fb", utmMedium: "paid_social", utmCampaign: campaign, utmContent: p(FB_ADS), medium: "facebook", sessionSource: "Paid Social", campaign },
+      attribution: {
+        ...none,
+        utmSource: "facebook",
+        utmMedium: `${campaign.split(" ")[0]} | ${source === "Instagram" ? "IG Placements" : "Ads"}`,
+        utmCampaign: `KU | ${campaign}`,
+        utmContent: `${campaign.split(" ")[0]} ${p(FB_ADS)}`,
+        medium: "facebook",
+        sessionSource: "Paid Social",
+        campaign: `KU | ${campaign}`,
+        formName: `${campaign} Form`,
+      },
     };
   }
   if (source === "Google Ads") {

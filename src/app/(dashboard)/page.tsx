@@ -4,7 +4,7 @@ import { loadPage } from "@/lib/page";
 import { buildContext, computeSeries, previousPeriod } from "@/lib/metrics";
 import { fmtDate, fmtInt, fmtRelative } from "@/lib/format";
 import { stageCounts, stageTone, TONE_COLOR } from "@/lib/stage-style";
-import { coverage, isLostLead, SOURCE_DIMENSIONS, sourceBreakdown, type SourceDimension } from "@/lib/metrics/sources";
+import { coverage, DEFAULT_SOURCE_DIMENSION, isLostLead, SOURCE_DIMENSIONS, sourceBreakdown, type SourceDimension } from "@/lib/metrics/sources";
 import { inRange } from "@/lib/time";
 import type { SearchParams } from "@/lib/filters";
 import type { Lead } from "@/lib/types";
@@ -15,6 +15,7 @@ import { TrendChart } from "@/components/charts/trend-chart";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { SourceTable } from "@/components/dashboard/source-table";
+import { SegmentedBar } from "@/components/charts/segmented-bar";
 
 export const metadata = { title: "Overview" };
 
@@ -47,18 +48,27 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const isLost = (l: Lead) => isLostLead(l, l.stageId ? stageById.get(l.stageId)?.name : undefined);
   const lost = leads.filter(isLost).length;
   const active = leads.filter((l) => l.status === "open" && !isLost(l)).length;
+  const bookedIds = new Set(ctx.ds.appointments.filter((a) => a.leadId && a.ghlStatus !== "cancelled" && a.ghlStatus !== "invalid").map((a) => a.leadId!));
+  const won = leads.filter((l) => l.status === "won").length;
+  const bookedOpen = leads.filter((l) => l.status === "open" && !isLost(l) && bookedIds.has(l.id)).length;
+  const statusSegments = [
+    { label: "In progress", value: active - bookedOpen, color: "var(--stage-1)", ink: "var(--stage-1-ink)" },
+    { label: "Booked", value: bookedOpen, color: "var(--stage-2)", ink: "var(--stage-2-ink)" },
+    { label: "Won", value: won, color: "var(--stage-4)", ink: "var(--stage-4-ink)" },
+    { label: "Lost / not interested", value: leads.filter((l) => l.status !== "won" && isLost(l)).length, color: "var(--stage-lost)", ink: "var(--stage-lost-ink)" },
+  ];
   const counts = stageCounts(leads, ctx.ds.stages);
   const max = Math.max(1, ...counts.map((c) => c.count));
-  const by = (SOURCE_DIMENSIONS.find((d) => d.key === sp.by)?.key ?? "source") as SourceDimension;
+  const by = (SOURCE_DIMENSIONS.find((d) => d.key === sp.by)?.key ?? DEFAULT_SOURCE_DIMENSION) as SourceDimension;
   const cohort = leads.filter((l) => inRange(l.createdAt, ctx.range));
   const sources = sourceBreakdown(cohort, ctx.ds.appointments, ctx.ds.stages, by);
   const sourcesHref = (d: SourceDimension) => {
     const q = new URLSearchParams(carried);
-    if (d !== "source") q.set("by", d);
+    if (d !== DEFAULT_SOURCE_DIMENSION) q.set("by", d);
     const s = q.toString();
     return `/${s ? `?${s}` : ""}#sources`;
   };
-  const recent = [...leads].sort((a, b) => (b.lastStageChangeAt ?? b.createdAt).localeCompare(a.lastStageChangeAt ?? a.createdAt)).slice(0, 8);
+  const recent = [...leads].sort((a, b) => (b.lastStageChangeAt ?? b.createdAt).localeCompare(a.lastStageChangeAt ?? a.createdAt)).slice(0, 6);
 
   const carried = new URLSearchParams();
   for (const k of ["account", "range", "from", "to"]) if (typeof sp[k] === "string") carried.set(k, sp[k] as string);
@@ -74,14 +84,27 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       <PageHeader title="Overview" description={`How your leads are progressing. Activity covers ${fmtDate(new Date(ctx.range.start).toISOString(), tz)} – ${fmtDate(new Date(ctx.range.end - 1).toISOString(), tz)}; stage counts are as of now.`} />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="New leads" value={fmtInt(newLeads)} sub="in range" icon={UserPlus} delta={delta(newLeads, prevNewLeads)} />
-        <KpiCard label="Appointments booked" value={fmtInt(booked)} sub="in range" icon={CalendarClock} delta={delta(booked, prevBooked)} />
+        <KpiCard label="New leads" value={fmtInt(newLeads)} sub="vs previous period" icon={UserPlus} delta={delta(newLeads, prevNewLeads)} trend={series.map((p) => p.newLeads)} />
+        <KpiCard label="Appointments booked" value={fmtInt(booked)} sub="vs previous period" icon={CalendarClock} delta={delta(booked, prevBooked)} trend={series.map((p) => p.callsScheduled)} />
         <KpiCard label="Active leads" value={fmtInt(active)} sub="open, not lost · now" icon={Users} />
         <KpiCard label="Lost / not interested" value={fmtInt(lost)} sub={leads.length ? `${Math.round((lost / leads.length) * 100)}% of all leads · now` : "now"} icon={CircleSlash} />
       </section>
 
-      <section className="mt-6 grid items-start gap-4 xl:grid-cols-5">
-        <Card className="xl:col-span-3">
+      <Card className="mt-4">
+        <CardHeader className="flex-row items-start justify-between gap-4">
+          <div className="flex flex-col gap-1.5">
+            <CardTitle>Lead status right now</CardTitle>
+            <CardDescription>All {fmtInt(leads.length)} leads. Booked = has an appointment that wasn't cancelled.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <SegmentedBar label="Lead status" segments={statusSegments} />
+        </CardContent>
+      </Card>
+
+      <section className="mt-4 grid items-start gap-4 xl:grid-cols-5">
+        <div className="flex min-w-0 flex-col gap-4 xl:col-span-3">
+        <Card>
           <CardHeader className="flex-row items-start justify-between gap-4">
             <div className="flex flex-col gap-1.5">
               <CardTitle>Where leads are now</CardTitle>
@@ -99,7 +122,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
                   <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: TONE_COLOR[c.tone] }} />
                   <span className="truncate">{c.name}</span>
                 </span>
-                <span className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <span className="h-2 overflow-hidden rounded-full bg-muted">
                   <span className="block h-full rounded-full" style={{ width: `${(c.count / max) * 100}%`, background: TONE_COLOR[c.tone] }} />
                 </span>
                 <span className="text-right text-sm tabular">{fmtInt(c.count)}</span>
@@ -107,38 +130,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             ))}
           </CardContent>
         </Card>
-
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle>Recently moved</CardTitle>
-            <CardDescription>Latest stage changes</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col">
-            {recent.map((l) => {
-              const st = l.stageId ? stageById.get(l.stageId) : undefined;
-              return (
-                <div key={l.id} className="flex items-center gap-3 border-b border-border/60 py-2.5 last:border-0">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{l.contactName}</div>
-                    <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                      <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: TONE_COLOR[st ? stageTone(st) : "slate"] }} />
-                      {st?.name ?? "No stage"}
-                    </div>
-                  </div>
-                  <span className="shrink-0 text-xs text-muted-foreground tabular">{fmtRelative(l.lastStageChangeAt ?? l.createdAt, ctx.now)}</span>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      </section>
-
-      <section id="sources" className="mt-4 scroll-mt-24">
-        <SourceTable rows={sources} dimension={by} href={sourcesHref} coverage={coverage(cohort, by)} cohort={cohort.length} />
-      </section>
-
-      <section className="mt-4 grid gap-4 xl:grid-cols-5">
-        <Card className="xl:col-span-3">
+        <Card>
           <CardHeader>
             <CardTitle>Lead flow</CardTitle>
             <CardDescription>New leads and appointments booked per {filters.granularity}</CardDescription>
@@ -153,7 +145,32 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             />
           </CardContent>
         </Card>
-        <Card className="xl:col-span-2">
+        </div>
+        <div className="flex min-w-0 flex-col gap-4 xl:col-span-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recently moved</CardTitle>
+            <CardDescription>Latest stage changes</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col">
+            {recent.map((l) => {
+              const st = l.stageId ? stageById.get(l.stageId) : undefined;
+              return (
+                <div key={l.id} className="flex items-center gap-3 border-b border-border/60 py-2.5 last:border-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{l.contactName}</div>
+                    <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+                      <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: TONE_COLOR[st ? stageTone(st) : "lost"] }} />
+                      {st?.name ?? "No stage"}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular">{fmtRelative(l.lastStageChangeAt ?? l.createdAt, ctx.now)}</span>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+        <Card>
           <CardHeader>
             <CardTitle>Sync</CardTitle>
             <CardDescription>Per GHL sub-account</CardDescription>
@@ -178,6 +195,11 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             ))}
           </CardContent>
         </Card>
+        </div>
+      </section>
+
+      <section id="sources" className="mt-4 scroll-mt-24">
+        <SourceTable rows={sources} dimension={by} href={sourcesHref} coverage={coverage(cohort, by)} cohort={cohort.length} />
       </section>
     </>
   );

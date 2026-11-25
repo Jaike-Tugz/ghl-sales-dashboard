@@ -101,7 +101,7 @@ Evaluated now, for open leads, against thresholds in Settings. A lead with an up
 ## Lead sources (UTM attribution)
 
 Overview → **Lead sources** groups the leads created in the selected range by one dimension and
-shows their outcomes as of now. Implemented in `src/lib/metrics/sources.ts`.
+shows their outcomes as of now. It opens on **UTM medium**. Implemented in `src/lib/metrics/sources.ts`.
 
 | Dimension | Value used |
 |---|---|

@@ -24,7 +24,7 @@ export function ChartTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
+    <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-sm">
       <div className="mb-1 font-medium text-foreground">{labelFormat && label ? labelFormat(label) : label}</div>
       {payload.map((p) => (
         <div key={p.dataKey ?? p.name} className="flex items-center gap-2 text-muted-foreground">
@@ -37,13 +37,17 @@ export function ChartTooltip({
   );
 }
 
-export function Legend({ items }: { items: Array<{ label: string; color: string }> }) {
+export function Legend({ items, swatch = "line" }: { items: Array<{ label: string; color: string }>; swatch?: "line" | "square" }) {
   if (items.length < 2) return null;
   return (
-    <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+    <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
       {items.map((i) => (
         <span key={i.label} className="flex items-center gap-1.5">
-          <span className="h-0.5 w-3 rounded-full" style={{ background: i.color, height: 3 }} />
+          {swatch === "square" ? (
+            <span className="size-2.5 rounded-sm" style={{ background: i.color }} />
+          ) : (
+            <span className="w-3 rounded-full" style={{ background: i.color, height: 3 }} />
+          )}
           {i.label}
         </span>
       ))}

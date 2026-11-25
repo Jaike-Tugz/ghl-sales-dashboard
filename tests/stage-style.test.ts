@@ -12,9 +12,9 @@ describe("stage style", () => {
     expect(isLostLikeStage("Not Interested (Lost)")).toBe(true);
     expect(isLostLikeStage("Show (Not a candidate)")).toBe(true);
     expect(isLostLikeStage("Booked Appointment")).toBe(false);
-    expect(stageTone(stage("s", 0, "Show (Not a candidate)", "first_call"))).toBe("slate");
-    expect(stageTone(stage("s", 0, "Booked Surgery", "closing"))).toBe("emerald");
-    expect(stageTone(stage("s", 0, "Something", null))).toBe("slate");
+    expect(stageTone(stage("s", 0, "Show (Not a candidate)", "first_call"))).toBe("lost");
+    expect(stageTone(stage("s", 0, "Booked Surgery", "closing"))).toBe("s4");
+    expect(stageTone(stage("s", 0, "Something", null))).toBe("lost");
   });
 
   it("counts leads per stage in pipeline order, keeping empty stages and skipping unused pipelines", () => {
@@ -27,8 +27,8 @@ describe("stage style", () => {
     const stages = [stage("a1", 0, "New Lead", "new_lead"), stage("a2", 0, "New Lead ", "new_lead", "p2"), stage("b2", 1, "Won", "closing", "p2")];
     const out = stageCounts([lead("1", "a1"), lead("2", "a2", "p2"), lead("3", "b2", "p2")], stages);
     expect(out).toEqual([
-      { name: "New Lead", stageIds: ["a1", "a2"], count: 2, tone: "sky" },
-      { name: "Won", stageIds: ["b2"], count: 1, tone: "emerald" },
+      { name: "New Lead", stageIds: ["a1", "a2"], count: 2, tone: "s1" },
+      { name: "Won", stageIds: ["b2"], count: 1, tone: "s4" },
     ]);
   });
 });
