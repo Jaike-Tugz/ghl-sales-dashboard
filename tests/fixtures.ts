@@ -1,5 +1,5 @@
 import { defaultSettings } from "@/lib/settings-defaults";
-import type { Appointment, Dataset, Filters, Lead } from "@/lib/types";
+import { EMPTY_ATTRIBUTION, type Appointment, type Dataset, type Filters, type Lead } from "@/lib/types";
 
 export const NOW = Date.parse("2026-06-30T12:00:00Z");
 export const settings = { ...defaultSettings(), reportingTimezone: "UTC" };
@@ -15,6 +15,8 @@ export function lead(p: Partial<Lead> & { id: string }): Lead {
     company: null,
     email: null,
     source: "Ads",
+    contactSource: null,
+    attribution: { ...EMPTY_ATTRIBUTION },
     repId: "r1",
     pipelineId: "p",
     stageId: null,

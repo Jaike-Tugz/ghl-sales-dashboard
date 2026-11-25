@@ -97,3 +97,28 @@ Evaluated now, for open leads, against thresholds in Settings. A lead with an up
 | Second call completed, no third | max completed = 2 and ≥ threshold days since call 2 |
 | Missed appointment, not rescheduled | latest appointment is no-show/cancelled, ≥ threshold days ago |
 | Inactive | days since last activity (stage/status change, GHL `lastActionDate`, past appointment) ≥ threshold |
+
+## Lead sources (UTM attribution)
+
+Overview → **Lead sources** groups the leads created in the selected range by one dimension and
+shows their outcomes as of now. Implemented in `src/lib/metrics/sources.ts`.
+
+| Dimension | Value used |
+|---|---|
+| Source | contact `source` in GHL (e.g. "Facebook - EVO ICL V2"), else the opportunity source |
+| UTM source / medium / campaign / content | contact attribution: first touch, falling back to last touch per field. Campaign falls back to GHL's own `campaign` field |
+| Channel | GHL `sessionSource` (e.g. "Paid Social"), else `medium` (e.g. "facebook") |
+| Lead form | opportunity `source` (e.g. "FB Form") |
+
+| Column | Formula |
+|---|---|
+| Leads | leads created in range with that value; blank values are grouped as "(not set)" |
+| Booked | those leads with at least one appointment that is not cancelled or invalid |
+| Booked rate | booked ÷ leads |
+| Won | status won |
+| Lost | status lost/abandoned, or currently in a lost-looking stage (e.g. "Not Interested (Lost)") |
+
+Attribution comes from `GET /contacts/{id}` (`attributionSource`, `lastAttributionSource`) and is
+stored on `contacts` by migration `20261125000001_contact_attribution.sql`. The reconcile job
+refetches each existing contact once to backfill it. UTMs are only present when the lead's
+form or ad link carried them, so the card shows how many leads have the chosen field set.

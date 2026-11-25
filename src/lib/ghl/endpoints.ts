@@ -64,6 +64,28 @@ export interface GhlContact {
   assignedTo?: string;
   dateAdded?: string;
   dateUpdated?: string;
+  /** First touch. Present on GET /contacts/{id}; usually absent from webhooks. */
+  attributionSource?: GhlAttribution;
+  lastAttributionSource?: GhlAttribution;
+}
+
+/** Attribution object on a GHL contact (fields as published; all optional). */
+export interface GhlAttribution {
+  url?: string;
+  campaign?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+  utmTerm?: string;
+  referrer?: string;
+  campaignId?: string;
+  fbclid?: string;
+  gclid?: string;
+  medium?: string;
+  mediumId?: string;
+  sessionSource?: string;
+  [key: string]: unknown;
 }
 
 export interface GhlCalendarEvent {

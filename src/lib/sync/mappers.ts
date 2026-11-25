@@ -2,7 +2,7 @@
  * Pure mapping/decision functions between GHL payloads and our rows. No I/O
  * here, so idempotency, out-of-order and reschedule rules are unit-tested.
  */
-import type { GhlCalendarEvent, GhlContact, GhlOpportunity } from "../ghl/endpoints";
+import type { GhlAttribution, GhlCalendarEvent, GhlContact, GhlOpportunity } from "../ghl/endpoints";
 
 export interface AccountRefs {
   accountId: string;
@@ -198,4 +198,45 @@ export function planReschedule(existing: ExistingAppointment | null, newStart: s
 
 export function personKey(email: string | null | undefined, accountId: string, ghlUserId: string): string {
   return email ? email.trim().toLowerCase() : `${accountId}:${ghlUserId}`;
+}
+
+export interface ContactAttributionRow {
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  utm_term: string | null;
+  attribution_medium: string | null;
+  session_source: string | null;
+  attribution_campaign: string | null;
+  attribution: { first: GhlAttribution | null; last: GhlAttribution | null } | null;
+}
+
+const clean = (v: unknown): string | null => {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  return t ? t.slice(0, 300) : null;
+};
+
+/**
+ * UTM / channel fields from a contact, first touch first and last touch as
+ * fallback per field. Returns null when the payload carries no attribution at
+ * all (e.g. a webhook), so callers never overwrite stored values with blanks.
+ */
+export function mapContactAttribution(c: GhlContact): ContactAttributionRow | null {
+  const first = c.attributionSource && typeof c.attributionSource === "object" ? c.attributionSource : null;
+  const last = c.lastAttributionSource && typeof c.lastAttributionSource === "object" ? c.lastAttributionSource : null;
+  if (!first && !last) return null;
+  const pick = (k: keyof GhlAttribution) => clean(first?.[k]) ?? clean(last?.[k]);
+  return {
+    utm_source: pick("utmSource"),
+    utm_medium: pick("utmMedium"),
+    utm_campaign: pick("utmCampaign"),
+    utm_content: pick("utmContent"),
+    utm_term: pick("utmTerm"),
+    attribution_medium: pick("medium"),
+    session_source: pick("sessionSource"),
+    attribution_campaign: pick("campaign"),
+    attribution: { first, last },
+  };
 }

@@ -4,6 +4,7 @@ import { fmtDate, fmtInt } from "@/lib/format";
 import { stageCounts, stageTone, TONE_COLOR } from "@/lib/stage-style";
 import type { SearchParams } from "@/lib/filters";
 import { cn } from "@/lib/utils";
+import type { Lead } from "@/lib/types";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -16,6 +17,14 @@ export const metadata = { title: "Lead Progress" };
 const TILE = "flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-4 transition-colors hover:border-foreground/25";
 const TILE_ACTIVE = "border-foreground/60 hover:border-foreground/60";
 
+
+/** "fb / paid_social · EVO ICL V2" from whatever UTM fields the lead has. */
+function utmLine(l: Lead) {
+  const a = l.attribution;
+  const sm = [a.utmSource, a.utmMedium].filter(Boolean).join(" / ");
+  const out = [sm, a.utmCampaign ?? a.campaign].filter(Boolean).join(" · ");
+  return out || null;
+}
 
 function Dot({ color, className }: { color: string; className?: string }) {
   return <span aria-hidden className={cn("inline-block size-2 shrink-0 rounded-full", className)} style={{ background: color }} />;
@@ -47,7 +56,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
   const q = filters.q?.toLowerCase();
   const rows = all
     .filter((l) => !selected || (l.stageId != null && selectedIds.has(l.stageId)))
-    .filter((l) => !q || [l.contactName, l.company, l.email].some((v) => v?.toLowerCase().includes(q)))
+    .filter((l) => !q || [l.contactName, l.company, l.email, l.contactSource, l.attribution.utmCampaign, l.attribution.utmSource].some((v) => v?.toLowerCase().includes(q)))
     .sort((a, b) => (b.lastStageChangeAt ?? b.createdAt).localeCompare(a.lastStageChangeAt ?? a.createdAt));
   const { slice, page, pages, total } = paginate(rows, sp.page);
 
@@ -131,6 +140,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Lead</TableHead>
                     <TableHead>Current stage</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Next appointment</TableHead>
                     {multiAccount && <TableHead>Sub-account</TableHead>}
                     <TableHead>Created</TableHead>
@@ -152,8 +162,12 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                           <span className="inline-flex items-center gap-2 text-sm">
                             <Dot color={color} />
                             {stage?.name ?? <span className="text-muted-foreground">No stage</span>}
-                            {l.status !== "open" && <span className="text-xs capitalize text-muted-foreground">· {l.status}</span>}
+                            {l.status !== "open" && !stage?.name.toLowerCase().includes(l.status) && <span className="text-xs capitalize text-muted-foreground">· {l.status}</span>}
                           </span>
+                        </TableCell>
+                        <TableCell className="max-w-64">
+                          <div className="truncate text-sm" title={l.contactSource ?? l.source ?? undefined}>{l.contactSource ?? l.source ?? <span className="text-muted-foreground">—</span>}</div>
+                          {utmLine(l) && <div className="truncate text-xs text-muted-foreground" title={utmLine(l)!}>{utmLine(l)}</div>}
                         </TableCell>
                         <TableCell className="text-sm tabular">{next ? fmtDate(next, tz, true) : <span className="text-muted-foreground">—</span>}</TableCell>
                         {multiAccount && <TableCell className="text-sm text-muted-foreground">{accounts.get(l.accountId)}</TableCell>}
