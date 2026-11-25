@@ -3,7 +3,7 @@ import type { Role } from "@/lib/types";
 
 export const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard, roles: ["admin", "manager", "rep"] },
-  { href: "/pipeline", label: "Pipeline", icon: ListChecks, roles: ["admin", "manager", "rep"] },
+  { href: "/pipeline", label: "Lead Progress", icon: ListChecks, roles: ["admin", "manager", "rep"] },
   { href: "/integrations", label: "Integrations", icon: Plug, roles: ["admin", "manager"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["admin", "manager", "rep"] },
 ] as const satisfies ReadonlyArray<{ href: string; label: string; icon: unknown; roles: readonly Role[] }>;

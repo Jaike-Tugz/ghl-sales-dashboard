@@ -76,7 +76,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               <CardDescription>{fmtInt(leads.length)} leads by current GHL stage</CardDescription>
             </div>
             <Link href={pipelineHref()} className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              Open pipeline <ArrowRight className="size-3" />
+              Open lead progress <ArrowRight className="size-3" />
             </Link>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
