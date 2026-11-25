@@ -15,11 +15,11 @@ export function TableBody({ className, ...props }: React.ComponentProps<"tbody">
   return <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props} />;
 }
 export function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
-  return <tr className={cn("border-b transition-colors hover:bg-muted/50", className)} {...props} />;
+  return <tr className={cn("border-b border-border/70 transition-colors hover:bg-muted/40", className)} {...props} />;
 }
 export function TableHead({ className, ...props }: React.ComponentProps<"th">) {
-  return <th className={cn("h-10 px-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground", className)} {...props} />;
+  return <th className={cn("h-11 px-4 text-left align-middle text-[11px] font-medium uppercase tracking-[0.06em] whitespace-nowrap text-muted-foreground first:pl-6 last:pr-6", className)} {...props} />;
 }
 export function TableCell({ className, ...props }: React.ComponentProps<"td">) {
-  return <td className={cn("px-3 py-2.5 align-middle whitespace-nowrap", className)} {...props} />;
+  return <td className={cn("px-4 py-3.5 align-middle whitespace-nowrap first:pl-6 last:pr-6", className)} {...props} />;
 }

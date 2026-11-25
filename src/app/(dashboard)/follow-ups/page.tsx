@@ -63,7 +63,6 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
               <TableRow>
                 <TableHead>Lead</TableHead>
                 <TableHead>Sub-account</TableHead>
-                <TableHead>Assigned rep</TableHead>
                 <TableHead>Current stage</TableHead>
                 <TableHead>Last activity</TableHead>
                 <TableHead className="text-right">Days inactive</TableHead>
@@ -76,7 +75,6 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
                 <TableRow key={i.leadId}>
                   <TableCell className="font-medium">{i.leadName}</TableCell>
                   <TableCell className="text-xs">{i.accountName}</TableCell>
-                  <TableCell className="text-xs">{i.repName ?? <span className="text-muted-foreground">Unassigned</span>}</TableCell>
                   <TableCell className="text-xs">{i.stageLabel}</TableCell>
                   <TableCell className="text-xs tabular">{fmtDate(i.lastActivity, tz)}</TableCell>
                   <TableCell className={cn("text-right tabular", i.daysInactive >= 14 && "text-destructive font-medium")}>{i.daysInactive}</TableCell>

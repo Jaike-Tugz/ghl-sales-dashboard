@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Menu, PhoneCall } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/types";
@@ -24,7 +24,7 @@ function NavLinks({ role, onNavigate }: { role: Role; onNavigate?: () => void })
   const pathname = usePathname();
   const query = useCarriedQuery();
   return (
-    <nav className="flex flex-col gap-0.5 px-3">
+    <nav className="flex flex-col gap-px px-3">
       {NAV.filter((n) => (n.roles as readonly Role[]).includes(role)).map((n) => {
         const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
         const Icon = n.icon;
@@ -34,11 +34,11 @@ function NavLinks({ role, onNavigate }: { role: Role; onNavigate?: () => void })
             href={`${n.href}${query}`}
             onClick={onNavigate}
             className={cn(
-              "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-              active && "bg-accent text-accent-foreground",
+              "group flex items-center gap-3 rounded-md px-3 py-[7px] text-[13px] text-muted-foreground transition-colors hover:text-foreground",
+              active && "bg-card text-foreground shadow-[0_0_0_1px_var(--border)]",
             )}
           >
-            <Icon className={cn("size-4 transition-colors", active ? "text-primary" : "group-hover:text-primary")} />
+            <Icon strokeWidth={1.75} className={cn("size-4 transition-colors", active ? "text-foreground" : "text-muted-foreground/80 group-hover:text-foreground")} />
             {n.label}
           </Link>
         );
@@ -49,13 +49,11 @@ function NavLinks({ role, onNavigate }: { role: Role; onNavigate?: () => void })
 
 function Brand() {
   return (
-    <div className="flex h-16 items-center gap-2.5 px-6">
-      <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-        <PhoneCall className="size-4" />
-      </div>
+    <div className="flex h-16 items-center gap-3 px-6">
+      <div className="flex size-7 items-center justify-center rounded-md bg-primary text-[11px] font-semibold tracking-tight text-primary-foreground">SC</div>
       <div className="leading-tight">
-        <div className="text-sm font-semibold">Sales Call Tracker</div>
-        <div className="text-[11px] text-muted-foreground">GHL multi-account</div>
+        <div className="text-[13px] font-medium tracking-tight">Sales Calls</div>
+        <div className="text-[11px] text-muted-foreground">Pipeline intelligence</div>
       </div>
     </div>
   );
@@ -63,10 +61,13 @@ function Brand() {
 
 export function Sidebar({ role }: { role: Role }) {
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
+    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
       <Brand />
       <NavLinks role={role} />
-      <div className="mt-auto px-6 py-4 text-[11px] text-muted-foreground">Read-only against GHL</div>
+      <div className="mt-auto flex items-center gap-2 px-6 py-5 text-[11px] text-muted-foreground">
+        <span className="size-1.5 rounded-full bg-success" />
+        Read-only sync with GHL
+      </div>
     </aside>
   );
 }
