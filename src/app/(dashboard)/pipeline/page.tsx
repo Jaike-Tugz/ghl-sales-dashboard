@@ -4,7 +4,6 @@ import { fmtDate, fmtInt } from "@/lib/format";
 import { stageCounts, stageTone, TONE_COLOR } from "@/lib/stage-style";
 import type { SearchParams } from "@/lib/filters";
 import { cn } from "@/lib/utils";
-import type { Lead } from "@/lib/types";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -18,12 +17,13 @@ const TILE = "flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-4 transiti
 const TILE_ACTIVE = "border-foreground/60 hover:border-foreground/60";
 
 
-/** "fb / paid_social · EVO ICL V2" from whatever UTM fields the lead has. */
-function utmLine(l: Lead) {
-  const a = l.attribution;
-  const sm = [a.utmSource, a.utmMedium].filter(Boolean).join(" / ");
-  const out = [sm, a.utmCampaign ?? a.campaign].filter(Boolean).join(" · ");
-  return out || null;
+/** A text cell that truncates long values and shows "—" when empty. */
+function Cell({ value }: { value: string | null | undefined }) {
+  return (
+    <TableCell className="max-w-56 truncate text-sm" title={value ?? undefined}>
+      {value || <span className="text-muted-foreground">—</span>}
+    </TableCell>
+  );
 }
 
 function Dot({ color, className }: { color: string; className?: string }) {
@@ -141,6 +141,9 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                     <TableHead>Lead</TableHead>
                     <TableHead>Current stage</TableHead>
                     <TableHead>Source</TableHead>
+                    <TableHead>UTM source</TableHead>
+                    <TableHead>UTM medium</TableHead>
+                    <TableHead>UTM campaign</TableHead>
                     <TableHead>Next appointment</TableHead>
                     {multiAccount && <TableHead>Sub-account</TableHead>}
                     <TableHead>Created</TableHead>
@@ -165,10 +168,10 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                             {l.status !== "open" && !stage?.name.toLowerCase().includes(l.status) && <span className="text-xs capitalize text-muted-foreground">· {l.status}</span>}
                           </span>
                         </TableCell>
-                        <TableCell className="max-w-64">
-                          <div className="truncate text-sm" title={l.contactSource ?? l.source ?? undefined}>{l.contactSource ?? l.source ?? <span className="text-muted-foreground">—</span>}</div>
-                          {utmLine(l) && <div className="truncate text-xs text-muted-foreground" title={utmLine(l)!}>{utmLine(l)}</div>}
-                        </TableCell>
+                        <Cell value={l.contactSource ?? l.source} />
+                        <Cell value={l.attribution.utmSource} />
+                        <Cell value={l.attribution.utmMedium} />
+                        <Cell value={l.attribution.utmCampaign ?? l.attribution.campaign} />
                         <TableCell className="text-sm tabular">{next ? fmtDate(next, tz, true) : <span className="text-muted-foreground">—</span>}</TableCell>
                         {multiAccount && <TableCell className="text-sm text-muted-foreground">{accounts.get(l.accountId)}</TableCell>}
                         <TableCell className="text-sm text-muted-foreground tabular">{fmtDate(l.createdAt, tz)}</TableCell>
