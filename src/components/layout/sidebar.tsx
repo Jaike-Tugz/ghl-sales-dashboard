@@ -8,6 +8,7 @@ import type { Role } from "@/lib/types";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { GLOBAL_KEYS, NAV } from "./nav";
+import { Logo } from "./logo";
 
 function useCarriedQuery() {
   const sp = useSearchParams();
@@ -49,12 +50,9 @@ function NavLinks({ role, onNavigate }: { role: Role; onNavigate?: () => void })
 
 function Brand() {
   return (
-    <div className="flex h-16 items-center gap-3 px-6">
-      <div className="flex size-7 items-center justify-center rounded-md bg-primary text-[11px] font-semibold tracking-tight text-primary-foreground">SC</div>
-      <div className="leading-tight">
-        <div className="text-[13px] font-medium tracking-tight">Sales Calls</div>
-        <div className="text-[11px] text-muted-foreground">Pipeline intelligence</div>
-      </div>
+    <div className="flex h-20 flex-col justify-center gap-1.5 px-6">
+      <Logo className="h-5" />
+      <div className="text-[11px] text-muted-foreground">Sales call tracking</div>
     </div>
   );
 }

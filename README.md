@@ -3,8 +3,9 @@
 **Live:** https://ghl-sales-dashboard-omega.vercel.app (demo data until Supabase and GHL are connected)
 
 A Next.js dashboard that consolidates up to N GoHighLevel sub-accounts (four to start) into one
-sales-call reporting system: KPIs, call-based and pipeline-based funnels, a sales-calls table,
-rep leaderboards, analytics, follow-up monitoring and sync health.
+simple lead-progress dashboard: an Overview (new leads, appointments booked, where leads are now,
+recent stage changes, sync health) and a Pipeline list showing every lead's current GHL stage,
+plus Integrations and Settings.
 
 No n8n, Zapier or Make. GHL is read through its official API v2 and webhooks, and **nothing is
 ever written back to GHL**.
