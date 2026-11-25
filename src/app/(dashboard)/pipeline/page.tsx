@@ -150,7 +150,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                 <TableBody>
                   {slice.map((l) => {
                     const stage = l.stageId ? stageById.get(l.stageId) : undefined;
-                    const color = TONE_COLOR[stage ? stageTone(stage) : "slate"];
+                    const color = TONE_COLOR[stage ? stageTone(stage) : "lost"];
                     const next = nextCall.get(l.id);
                     return (
                       <TableRow key={l.id}>

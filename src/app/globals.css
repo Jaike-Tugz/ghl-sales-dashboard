@@ -25,11 +25,24 @@
   --border: oklch(0.92 0.002 90);
   --input: oklch(0.9 0.002 90);
   --ring: oklch(0.45 0.004 90);
-  --chart-1: #2a78d6;
-  --chart-2: #eb6834;
-  --chart-3: #1baf7a;
-  --chart-4: #eda100;
-  --chart-5: #e87ba4;
+  /* Categorical series, fixed order (validated: CVD + normal-vision, light surface). */
+  --chart-1: #257de0;
+  --chart-2: #f47230;
+  --chart-3: #00b894;
+  --chart-4: #f2a600;
+  --chart-5: #ee7fac;
+  /* Lead progress: one hue, darker = further along (validated ordinal ramp); grey = lost. */
+  --stage-1: #84b9f3;
+  --stage-2: #338ced;
+  --stage-3: #1b64be;
+  --stage-4: #0e3d7e;
+  --stage-lost: #b4b4b4;
+  /* Label ink inside each stage fill (by the fill's lightness). */
+  --stage-1-ink: #0b0b0b;
+  --stage-2-ink: #ffffff;
+  --stage-4-ink: #ffffff;
+  --stage-lost-ink: #0b0b0b;
+  --chart-grid: #ececec;
   --sidebar: oklch(0.975 0.001 90);
   --sidebar-border: oklch(0.925 0.002 90);
 }
@@ -55,11 +68,22 @@
   --border: oklch(0.26 0.002 90);
   --input: oklch(0.3 0.002 90);
   --ring: oklch(0.7 0.004 90);
-  --chart-1: #3987e5;
-  --chart-2: #d95926;
-  --chart-3: #199e70;
-  --chart-4: #c98500;
-  --chart-5: #d55181;
+  --chart-1: #338ced;
+  --chart-2: #e76624;
+  --chart-3: #00a888;
+  --chart-4: #d28e05;
+  --chart-5: #e24d8b;
+  /* Dark: further along = lighter (stepped for the dark surface, validated). */
+  --stage-1: #1757ac;
+  --stage-2: #257de0;
+  --stage-3: #6aabf1;
+  --stage-4: #b6d5f8;
+  --stage-lost: #5a5a5a;
+  --stage-1-ink: #ffffff;
+  --stage-2-ink: #ffffff;
+  --stage-4-ink: #0b0b0b;
+  --stage-lost-ink: #ffffff;
+  --chart-grid: #2c2c2c;
   --sidebar: oklch(0.17 0.002 90);
   --sidebar-border: oklch(0.24 0.002 90);
 }

@@ -12,7 +12,8 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { BreakdownTable } from "@/components/dashboard/source-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendChart } from "@/components/charts/trend-chart";
+import { StackedColumns } from "@/components/charts/stacked-columns";
+import { MeterList, ofText } from "@/components/charts/meter-list";
 
 export const metadata = { title: "FB Ads" };
 
@@ -43,6 +44,11 @@ export default async function FbAdsPage({ searchParams }: { searchParams: Promis
   const lv = FB_LEVELS.find((l) => l.key === level)!;
   const rows = breakdownBy(cohort, ds.appointments, ds.stages, lv.get, lv.parent ?? undefined);
   const chart = campaignSeries(fbLeads, filters, ctx.range, tz);
+  const leadTrend = chart.data.map((p) => chart.series.reduce((a, s) => a + Number(p[s.key] ?? 0), 0));
+  const adLevel = FB_LEVELS.find((l) => l.key === "ad")!;
+  const adRows = breakdownBy(cohort, ds.appointments, ds.stages, adLevel.get, adLevel.parent ?? undefined)
+    .filter((r) => r.label !== "(not set)")
+    .slice(0, 6);
 
   const href = (key: FbLevel) => {
     const q = new URLSearchParams();
@@ -64,21 +70,35 @@ export default async function FbAdsPage({ searchParams }: { searchParams: Promis
       ) : (
         <>
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KpiCard label="FB leads" value={fmtInt(cur.leads)} sub="in range" icon={Megaphone} delta={delta(cur.leads, before.leads)} />
+            <KpiCard label="FB leads" value={fmtInt(cur.leads)} sub="vs previous period" icon={Megaphone} delta={delta(cur.leads, before.leads)} trend={leadTrend} />
             <KpiCard label="Booked" value={fmtInt(cur.booked)} sub="have an appointment" icon={CalendarClock} delta={delta(cur.booked, before.booked)} />
             <KpiCard label="Booked rate" value={fmtPct(cur.bookedRate, 0)} sub="booked ÷ FB leads" icon={Percent} delta={delta(cur.bookedRate, before.bookedRate)} />
             <KpiCard label="Lost / not interested" value={fmtPct(cur.lostRate, 0)} sub={`${fmtInt(cur.lost)} ${cur.lost === 1 ? "lead" : "leads"}`} icon={CircleSlash} delta={delta(cur.lostRate, before.lostRate)} invert />
           </section>
 
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>FB leads by campaign</CardTitle>
-              <CardDescription>New leads per {filters.granularity}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TrendChart data={chart.data} series={chart.series} />
-            </CardContent>
-          </Card>
+          <section className="mt-4 grid items-start gap-4 xl:grid-cols-5">
+            <Card className="xl:col-span-3">
+              <CardHeader>
+                <CardTitle>FB leads by campaign</CardTitle>
+                <CardDescription>New leads per {filters.granularity}, stacked by campaign</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <StackedColumns data={chart.data} series={chart.series} />
+              </CardContent>
+            </Card>
+            <Card className="xl:col-span-2">
+              <CardHeader>
+                <CardTitle>Booked rate by ad</CardTitle>
+                <CardDescription>Share of each ad&apos;s leads that booked an appointment</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MeterList
+                  empty="No ad names in range. Ads appear here when your ad links pass utm_content."
+                  rows={adRows.map((r) => ({ label: r.label, sub: r.parent, ratio: r.bookedRate, detail: ofText(r.booked, r.leads) }))}
+                />
+              </CardContent>
+            </Card>
+          </section>
 
           <section id="breakdown" className="mt-4 scroll-mt-24">
             <BreakdownTable

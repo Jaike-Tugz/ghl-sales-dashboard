@@ -1,5 +1,5 @@
 "use client";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { axisProps, bucketLabel, ChartTooltip, Legend, SERIES } from "./chart-kit";
 
 export interface TrendSeries {
@@ -26,15 +26,17 @@ export function TrendChart({
       <Legend items={series.map((s, i) => ({ label: s.label, color: SERIES[i % SERIES.length] }))} />
       <div style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-            <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="0" />
+          <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
             <XAxis dataKey="bucket" tickFormatter={bucketLabel} {...axisProps} minTickGap={24} />
             <YAxis {...axisProps} allowDecimals={false} width={currency ? 64 : 40} tickFormatter={(v) => (currency ? new Intl.NumberFormat("en-AU", { notation: "compact" }).format(v) : v)} />
             <Tooltip cursor={{ stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }} content={<ChartTooltip format={fmt} labelFormat={bucketLabel} />} />
             {series.map((s, i) => (
-              <Line
+              <Area
                 key={s.key}
                 type="monotone"
+                fill={SERIES[i % SERIES.length]}
+                fillOpacity={i === 0 ? 0.1 : 0}
                 dataKey={s.key}
                 name={s.label}
                 stroke={SERIES[i % SERIES.length]}
@@ -44,7 +46,7 @@ export function TrendChart({
                 animationDuration={600}
               />
             ))}
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </div>

@@ -1,29 +1,28 @@
 import type { BusinessStageKey, Lead, PipelineStage } from "./types";
 
 /**
- * GHL's API does not expose pipeline stage colours, so each stage gets a tone
- * from what it means: lost-looking stages are grey, everything else follows its
- * mapped business stage. The tone is a CSS colour usable for dots and bars.
+ * GHL's API does not expose pipeline stage colours, so a stage's colour shows
+ * how far along it is: one blue that gets darker (lighter in dark mode) as a
+ * lead progresses, and grey for lost-looking stages. Four levels, because more
+ * steps of one hue can't be told apart (validated ordinal ramp, see globals.css).
  */
-export type StageTone = "slate" | "sky" | "violet" | "amber" | "orange" | "teal" | "emerald";
+export type StageTone = "s1" | "s2" | "s3" | "s4" | "lost";
 
 export const TONE_COLOR: Record<StageTone, string> = {
-  slate: "oklch(0.68 0.015 260)",
-  sky: "oklch(0.64 0.13 245)",
-  violet: "oklch(0.6 0.15 290)",
-  amber: "oklch(0.76 0.14 75)",
-  orange: "oklch(0.68 0.16 45)",
-  teal: "oklch(0.64 0.1 190)",
-  emerald: "oklch(0.62 0.13 158)",
+  s1: "var(--stage-1)",
+  s2: "var(--stage-2)",
+  s3: "var(--stage-3)",
+  s4: "var(--stage-4)",
+  lost: "var(--stage-lost)",
 };
 
 const BY_BUSINESS_STAGE: Record<BusinessStageKey, StageTone> = {
-  new_lead: "sky",
-  first_call: "violet",
-  second_call: "amber",
-  third_call: "orange",
-  fourth_stage: "teal",
-  closing: "emerald",
+  new_lead: "s1",
+  first_call: "s2",
+  second_call: "s3",
+  third_call: "s3",
+  fourth_stage: "s3",
+  closing: "s4",
 };
 
 const LOST_WORDS = /\b(lost|not interested|disqualified|dead|closed lost|unqualified|not a candidate|do not contact)\b/i;
@@ -33,8 +32,8 @@ export function isLostLikeStage(name: string) {
 }
 
 export function stageTone(stage: Pick<PipelineStage, "name" | "businessStage">): StageTone {
-  if (isLostLikeStage(stage.name)) return "slate";
-  return stage.businessStage ? BY_BUSINESS_STAGE[stage.businessStage] : "slate";
+  if (isLostLikeStage(stage.name)) return "lost";
+  return stage.businessStage ? BY_BUSINESS_STAGE[stage.businessStage] : "lost";
 }
 
 export interface StageCount {

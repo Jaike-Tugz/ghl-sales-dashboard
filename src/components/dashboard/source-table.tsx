@@ -61,7 +61,7 @@ export function BreakdownTable({ title, description, tabs, columnLabel, rows }: 
                   </TableCell>
                   <TableCell>
                     <span className="block h-1.5 overflow-hidden rounded-full bg-muted">
-                      <span className="block h-full rounded-full bg-foreground/70" style={{ width: `${(r.leads / max) * 100}%` }} />
+                      <span className="block h-full rounded-full bg-[var(--chart-1)]" style={{ width: `${(r.leads / max) * 100}%` }} />
                     </span>
                   </TableCell>
                   <TableCell className="text-right text-sm tabular">{fmtInt(r.leads)}</TableCell>
