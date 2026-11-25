@@ -141,9 +141,6 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                     <TableHead>Lead</TableHead>
                     <TableHead>Current stage</TableHead>
                     <TableHead>Source</TableHead>
-                    <TableHead>UTM source</TableHead>
-                    <TableHead>UTM medium</TableHead>
-                    <TableHead>UTM campaign</TableHead>
                     <TableHead>Next appointment</TableHead>
                     {multiAccount && <TableHead>Sub-account</TableHead>}
                     <TableHead>Created</TableHead>
@@ -169,9 +166,6 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
                           </span>
                         </TableCell>
                         <Cell value={l.contactSource ?? l.source} />
-                        <Cell value={l.attribution.utmSource} />
-                        <Cell value={l.attribution.utmMedium} />
-                        <Cell value={l.attribution.utmCampaign ?? l.attribution.campaign} />
                         <TableCell className="text-sm tabular">{next ? fmtDate(next, tz, true) : <span className="text-muted-foreground">—</span>}</TableCell>
                         {multiAccount && <TableCell className="text-sm text-muted-foreground">{accounts.get(l.accountId)}</TableCell>}
                         <TableCell className="text-sm text-muted-foreground tabular">{fmtDate(l.createdAt, tz)}</TableCell>
