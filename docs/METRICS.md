@@ -122,3 +122,21 @@ Attribution comes from `GET /contacts/{id}` (`attributionSource`, `lastAttributi
 stored on `contacts` by migration `20261125000001_contact_attribution.sql`. The reconcile job
 refetches each existing contact once to backfill it. UTMs are only present when the lead's
 form or ad link carried them, so the card shows how many leads have the chosen field set.
+
+## Lead journey and Needs attention (Overview)
+
+Implemented in `src/lib/metrics/journey.ts` and `attention.ts`. Clinic pipelines record outcomes
+in stage names, so both read the lead's **current GHL stage name** plus its appointments.
+
+| Step | A lead counts when… |
+|---|---|
+| Contacted | its stage is not "New Lead"/"No Answer", or it is booked, or it is in a lost-looking stage |
+| Booked | it has a non-cancelled appointment, or its stage is mapped past New Lead |
+| Showed | its stage name says "Show" (not "No Show"), an appointment is marked showed, or it is past the first call |
+| Last step | status won, or a stage mapped to Closing (named after that stage, e.g. "Booked Surgery") |
+
+Steps are cumulative. Show rate = showed ÷ (showed + no-shows). The cohort is leads created in range.
+
+**Needs attention** lists open, non-lost leads with one reason each, most urgent first:
+appointment in the next 2 days; New Lead / No Answer for 2–30 days; No Show for 2–30 days with nothing
+rebooked; showed 7–45 days ago with no next appointment. Older leads are treated as stale.

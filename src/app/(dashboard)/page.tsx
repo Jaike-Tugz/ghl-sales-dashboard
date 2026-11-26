@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, CalendarClock, CircleSlash, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, BadgeCheck, CalendarClock, Eye, UserPlus } from "lucide-react";
 import { loadPage } from "@/lib/page";
 import { buildContext, computeSeries, previousPeriod } from "@/lib/metrics";
-import { fmtDate, fmtInt, fmtRelative } from "@/lib/format";
+import { fmtDate, fmtInt, fmtPct, fmtRelative } from "@/lib/format";
 import { stageCounts, stageTone, TONE_COLOR } from "@/lib/stage-style";
-import { coverage, DEFAULT_SOURCE_DIMENSION, isLostLead, SOURCE_DIMENSIONS, sourceBreakdown, type SourceDimension } from "@/lib/metrics/sources";
+import { coverage, DEFAULT_SOURCE_DIMENSION, SOURCE_DIMENSIONS, sourceBreakdown, type SourceDimension } from "@/lib/metrics/sources";
 import { inRange } from "@/lib/time";
 import type { SearchParams } from "@/lib/filters";
-import type { Lead } from "@/lib/types";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,11 +14,16 @@ import { TrendChart } from "@/components/charts/trend-chart";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { SourceTable } from "@/components/dashboard/source-table";
-import { SegmentedBar } from "@/components/charts/segmented-bar";
+import { JourneyFunnel } from "@/components/dashboard/journey-funnel";
+import { AttentionList } from "@/components/dashboard/attention-list";
+import { journeySummary } from "@/lib/metrics/journey";
+import { needsAttention } from "@/lib/metrics/attention";
+import { rangeFromDates } from "@/lib/time";
 
 export const metadata = { title: "Overview" };
 
 const delta = (cur: number, prev: number) => (prev === 0 ? null : (cur - prev) / Math.abs(prev));
+const rateDelta = (cur: number | null, prev: number | null) => (cur == null || prev == null ? null : delta(cur, prev));
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -38,29 +42,22 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const series = computeSeries(ctx);
   const prevSeries = computeSeries(buildContext(ds, settings, previousPeriod(filters), ctx.now));
   const newLeads = sum(series.map((p) => p.newLeads));
-  const booked = sum(series.map((p) => p.callsScheduled));
   const prevNewLeads = sum(prevSeries.map((p) => p.newLeads));
-  const prevBooked = sum(prevSeries.map((p) => p.callsScheduled));
 
   // Current position of every lead (point-in-time, ignores the date range).
   const leads = ctx.ds.leads;
   const stageById = new Map(ctx.ds.stages.map((s) => [s.id, s]));
-  const isLost = (l: Lead) => isLostLead(l, l.stageId ? stageById.get(l.stageId)?.name : undefined);
-  const lost = leads.filter(isLost).length;
-  const active = leads.filter((l) => l.status === "open" && !isLost(l)).length;
-  const bookedIds = new Set(ctx.ds.appointments.filter((a) => a.leadId && a.ghlStatus !== "cancelled" && a.ghlStatus !== "invalid").map((a) => a.leadId!));
-  const won = leads.filter((l) => l.status === "won").length;
-  const bookedOpen = leads.filter((l) => l.status === "open" && !isLost(l) && bookedIds.has(l.id)).length;
-  const statusSegments = [
-    { label: "In progress", value: active - bookedOpen, color: "var(--stage-1)", ink: "var(--stage-1-ink)" },
-    { label: "Booked", value: bookedOpen, color: "var(--stage-2)", ink: "var(--stage-2-ink)" },
-    { label: "Won", value: won, color: "var(--stage-4)", ink: "var(--stage-4-ink)" },
-    { label: "Lost / not interested", value: leads.filter((l) => l.status !== "won" && isLost(l)).length, color: "var(--stage-lost)", ink: "var(--stage-lost-ink)" },
-  ];
   const counts = stageCounts(leads, ctx.ds.stages);
   const max = Math.max(1, ...counts.map((c) => c.count));
   const by = (SOURCE_DIMENSIONS.find((d) => d.key === sp.by)?.key ?? DEFAULT_SOURCE_DIMENSION) as SourceDimension;
   const cohort = leads.filter((l) => inRange(l.createdAt, ctx.range));
+  const prev = previousPeriod(filters);
+  const prevCohort = leads.filter((l) => inRange(l.createdAt, rangeFromDates(prev.from, prev.to, tz)));
+  const journey = journeySummary(cohort, ctx.ds.stages, ctx.ds.appointments);
+  const prevJourney = journeySummary(prevCohort, ctx.ds.stages, ctx.ds.appointments);
+  const step = (j: typeof journey, k: string) => j.steps.find((x) => x.key === k)?.count ?? 0;
+  const closedStep = journey.steps[journey.steps.length - 1];
+  const attention = needsAttention(leads, ctx.ds.stages, ctx.ds.appointments, ctx.now);
   const sources = sourceBreakdown(cohort, ctx.ds.appointments, ctx.ds.stages, by);
   const sourcesHref = (d: SourceDimension) => {
     const q = new URLSearchParams(carried);
@@ -85,25 +82,22 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="New leads" value={fmtInt(newLeads)} sub="vs previous period" icon={UserPlus} delta={delta(newLeads, prevNewLeads)} trend={series.map((p) => p.newLeads)} />
-        <KpiCard label="Appointments booked" value={fmtInt(booked)} sub="vs previous period" icon={CalendarClock} delta={delta(booked, prevBooked)} trend={series.map((p) => p.callsScheduled)} />
-        <KpiCard label="Active leads" value={fmtInt(active)} sub="open, not lost · now" icon={Users} />
-        <KpiCard label="Lost / not interested" value={fmtInt(lost)} sub={leads.length ? `${Math.round((lost / leads.length) * 100)}% of all leads · now` : "now"} icon={CircleSlash} />
+        <KpiCard label="Booked" value={fmtInt(step(journey, "booked"))} sub={`${fmtPct(cohort.length ? step(journey, "booked") / cohort.length : null, 0)} of new leads`} icon={CalendarClock} delta={rateDelta(step(journey, "booked"), step(prevJourney, "booked"))} trend={series.map((p) => p.callsScheduled)} />
+        <KpiCard label="Show rate" value={fmtPct(journey.showRate, 0)} sub={`${fmtInt(step(journey, "showed"))} showed · ${fmtInt(journey.noShows)} no-show`} icon={Eye} delta={rateDelta(journey.showRate, prevJourney.showRate)} />
+        <KpiCard label={closedStep.label} value={fmtInt(closedStep.count)} sub="from new leads in range" icon={BadgeCheck} delta={rateDelta(closedStep.count, prevJourney.steps[prevJourney.steps.length - 1].count)} />
       </section>
-
-      <Card className="mt-4">
-        <CardHeader className="flex-row items-start justify-between gap-4">
-          <div className="flex flex-col gap-1.5">
-            <CardTitle>Lead status right now</CardTitle>
-            <CardDescription>All {fmtInt(leads.length)} leads. Booked = has an appointment that wasn't cancelled.</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <SegmentedBar label="Lead status" segments={statusSegments} />
-        </CardContent>
-      </Card>
 
       <section className="mt-4 grid items-start gap-4 xl:grid-cols-5">
         <div className="flex min-w-0 flex-col gap-4 xl:col-span-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Lead journey</CardTitle>
+            <CardDescription>{fmtInt(cohort.length)} leads created in range and how far they&apos;ve got, read from your GHL stages</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <JourneyFunnel summary={journey} />
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex-row items-start justify-between gap-4">
             <div className="flex flex-col gap-1.5">
@@ -130,6 +124,25 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             ))}
           </CardContent>
         </Card>
+        </div>
+        <div className="flex min-w-0 flex-col gap-4 xl:col-span-2">
+        <Card>
+          <CardHeader className="flex-row items-start justify-between gap-4">
+            <div className="flex flex-col gap-1.5">
+              <CardTitle>Needs attention</CardTitle>
+              <CardDescription>Open leads to act on now</CardDescription>
+            </div>
+            <span className="rounded-md bg-secondary px-2 py-1 text-xs font-medium tabular">{fmtInt(attention.length)}</span>
+          </CardHeader>
+          <CardContent>
+            <AttentionList items={attention} now={ctx.now} />
+          </CardContent>
+        </Card>
+        </div>
+      </section>
+
+      <section className="mt-4 grid items-start gap-4 xl:grid-cols-5">
+        <div className="flex min-w-0 flex-col gap-4 xl:col-span-3">
         <Card>
           <CardHeader>
             <CardTitle>Lead flow</CardTitle>
