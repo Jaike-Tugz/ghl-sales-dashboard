@@ -10,6 +10,8 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { Pagination, paginate } from "@/components/dashboard/pagination";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LeadBoard } from "@/components/dashboard/lead-board";
+import type { Lead } from "@/lib/types";
 
 export const metadata = { title: "Lead Progress" };
 
@@ -59,6 +61,20 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
     .filter((l) => !q || [l.contactName, l.company, l.email, l.contactSource, l.attribution.utmCampaign, l.attribution.utmSource].some((v) => v?.toLowerCase().includes(q)))
     .sort((a, b) => (b.lastStageChangeAt ?? b.createdAt).localeCompare(a.lastStageChangeAt ?? a.createdAt));
   const { slice, page, pages, total } = paginate(rows, sp.page);
+  const board = sp.view === "board";
+  // The board shows every stage, so it ignores the stage selection but keeps the search.
+  const boardLeads = new Map<string, Lead[]>();
+  if (board) {
+    const nameOf = new Map(counts.flatMap((c) => c.stageIds.map((id) => [id, c.name] as const)));
+    const searched = all
+      .filter((l) => !q || [l.contactName, l.company, l.email, l.contactSource, l.attribution.utmCampaign, l.attribution.utmSource].some((v) => v?.toLowerCase().includes(q)))
+      .sort((a, b) => (b.lastStageChangeAt ?? b.createdAt).localeCompare(a.lastStageChangeAt ?? a.createdAt));
+    for (const l of searched) {
+      const key = (l.stageId && nameOf.get(l.stageId)) || "No stage";
+      boardLeads.set(key, [...(boardLeads.get(key) ?? []), l]);
+    }
+  }
+  const boardColumns = boardLeads.has("No stage") ? [...counts, { name: "No stage", stageIds: [], count: boardLeads.get("No stage")!.length, tone: "lost" as const }] : counts;
 
   const carry = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams();
@@ -70,12 +86,35 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader title="Lead Progress" description="Where every lead stands right now, using your GHL stages. Refreshes on each sync." />
+      <PageHeader title="Lead Progress" description="Where every lead stands right now, using your GHL stages. Refreshes on each sync.">
+        <nav aria-label="View" className="flex rounded-lg border bg-card p-0.5">
+          {(["list", "board"] as const).map((v) => {
+            const active = (v === "board") === board;
+            return (
+              <Link
+                key={v}
+                href={carry({ view: v === "board" ? "board" : null, gstage: v === "board" ? null : (sp.gstage as string) ?? null })}
+                aria-current={active ? "page" : undefined}
+                className={cn("rounded-md px-3 py-1 text-xs capitalize text-muted-foreground transition-colors hover:text-foreground", active && "bg-secondary text-foreground")}
+              >
+                {v}
+              </Link>
+            );
+          })}
+        </nav>
+      </PageHeader>
 
       {all.length === 0 ? (
         <EmptyState title="No leads yet" description="Leads appear here once your sales pipeline is synced from GHL." />
       ) : (
         <>
+          {board ? (
+            <>
+              <FilterBar />
+              <LeadBoard columns={boardColumns} leadsByStage={boardLeads} nextAppt={nextCall} now={now} timeZone={tz} moreHref={(stage) => carry({ view: null, gstage: stage })} />
+            </>
+          ) : (
+          <>
           <section className="mb-8">
             <div className="mb-3 flex items-baseline justify-between">
               <span className="text-xs text-muted-foreground">Distribution</span>
@@ -178,6 +217,8 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
             </Card>
           )}
           <Pagination page={page} pages={pages} total={total} params={sp} basePath="/pipeline" />
+          </>
+          )}
         </>
       )}
     </>
